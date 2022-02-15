@@ -41,7 +41,7 @@ def fix_nodes(db):
     df = db.fixity
     for node in df.index:
         tag = db.get_node_tag(node)
-        dof_fixity = list( df.loc[node] == 'Fixed')
+        dof_fixity = list( df.loc[node] )
         dof_fixity = [int(i) for i in dof_fixity]
         ops.fix(tag, *dof_fixity)
 

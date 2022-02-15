@@ -16,6 +16,7 @@ def initialize_database(filename):
                                          'Z':float})
     
     dfFix = pandas.read_excel(filename, sheet_name='nodeFix')
+    dfFix = dfFix.iloc[:]=='Fixed'
     
     dfNodeMass = pandas.read_excel(filename, sheet_name='nodeMass',
                                    dtype={'X':float, 'RX':float,
@@ -78,8 +79,6 @@ def initialize_database(filename):
     
     return database
 
-def node_tag(node_name):
-    pass
 
 if __name__ == '__main__':
     import os
