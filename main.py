@@ -9,11 +9,16 @@ Created on Mon Nov 15 10:44:00 2021
 import src.model as m
 import openseespy.opensees as ops
 from src.excel_to_database import initialize_database
+from src.bookkeeping import make_output_directory, save_input_file
 
 # %% Import Data
 print('Starting Import')
-model_filename = 'Model_Data_UFP.xlsm'
+model_filename = 'Model_Data.xlsm'
 db = initialize_database(model_filename)
+
+# %% Create Output Directory
+out_dir = make_output_directory()
+save_input_file(model_filename, out_dir)
 
 # %% Define Structure
 print('Defining Structure')
@@ -23,6 +28,8 @@ m.make_model('3D')
 m.define_nodes(db)
 
 m.fix_nodes(db)
+
+m.assign_node_mass(db)
 
 m.make_diaphragm_constraints(db)
 
@@ -43,6 +50,10 @@ ops.pattern('Plain', 1, 1)
 ops.load(db.get_node_tag('LWall1'), *[-100.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 # ops.load(db.get_node_tag('F2 Corner4'), *[0.0, -1000.0, 0.0, 0.0, 0.0, 0.0])
 # ops.load(db.get_node_tag('F3 Center'), *[1000.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
+# %% Loads
+# load.gravity
+# load.
 
 # %% Recorders
 #r.make_node_rocorders(db)

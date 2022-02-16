@@ -11,7 +11,8 @@ import pandas
 def initialize_database(filename):
     
     dfNode = pandas.read_excel(filename, sheet_name='nodes',
-                                  dtype={'X':float,
+                                  dtype={'Tag':int,
+                                         'X':float,
                                          'Y':float,
                                          'Z':float})
     
