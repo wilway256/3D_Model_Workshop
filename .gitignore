@@ -4,3 +4,4 @@ src/__pycache__/
 out/
 *.rvt
 Model_Builder.xlsm
+~$Model_Builder.xlsm
