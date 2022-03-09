@@ -7,14 +7,15 @@ Created on Mon Nov 15 11:24:08 2021
 
 import pandas
 # import sqlite3
-
+# %% Dataframes
 def initialize_database(filename):
-    
+    # %%% Nodes
     dfNode = pandas.read_excel(filename, sheet_name='nodes',
                                   dtype={'Tag':int,
                                          'X':float,
                                          'Y':float,
-                                         'Z':float})
+                                         'Z':float,
+                                         'Group':str})
     
     dfFix = pandas.read_excel(filename, sheet_name='nodeFix')
     dfFix = dfFix.iloc[:]=='Fixed'
@@ -24,23 +25,33 @@ def initialize_database(filename):
                                           'Y':float, 'RY':float,
                                           'Z':float, 'RZ':float})
     
+    dfNodeLoad = pandas.read_excel(filename, sheet_name='nodeLoads',
+                                   dtype={'Node':str,
+                                          'Load':float,
+                                          'Direction':str,
+                                          'Pattern':str})
+    
+    # %%% Elements
     dfEleList = pandas.read_excel(filename, sheet_name='elements', 
                                   dtype={'Element':str,
                                          'PropertyID':str,
                                          'Tag':int,
                                          'iNode':str,
-                                         'jNode':str})
+                                         'jNode':str,
+                                         'Group':str})
     
     dfEleType = pandas.read_excel(filename, sheet_name='eleProperties')
     dfEleType = dfEleType.astype(float, copy=False, errors='ignore')
-    
-    dfDiaphragm = pandas.read_excel(filename, sheet_name='diaphragms')
     
     dfTransf = pandas.read_excel(filename, sheet_name='eleTransf', 
                                   dtype={'Tag':int,
                                          'Xvec':float,
                                          'Yvec':float,
                                          'Zvec':float})
+    
+    # %%% Constraints
+    dfDiaphragm = pandas.read_excel(filename, sheet_name='diaphragms')
+
     
     # Set the first column of each worksheet as the index.
     for df in [dfNode, dfFix, dfEleList, dfEleType, dfDiaphragm, dfTransf]:
@@ -50,6 +61,7 @@ def initialize_database(filename):
         node = dfNode
         fixity = dfFix
         nodeMass = dfNodeMass
+        nodeLoad = dfNodeLoad
         ele = dfEleList
         eleData = dfEleType
         transf = dfTransf

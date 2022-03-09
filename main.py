@@ -11,13 +11,13 @@ import openseespy.opensees as ops
 from src.excel_to_database import initialize_database
 from src.bookkeeping import make_output_directory, save_input_file
 
+# %% Create Output Directory
+out_dir = make_output_directory()
+
 # %% Import Data
 print('Starting Import')
 model_filename = 'Model_Data.xlsm'
 db = initialize_database(model_filename)
-
-# %% Create Output Directory
-out_dir = make_output_directory()
 save_input_file(model_filename, out_dir)
 
 # %% Define Structure
