@@ -143,14 +143,15 @@ Sub Floors_and_Columns()
   Call Make_New_Sheet("diaphragms", "ConstrainedNode", "RetainedNode")
   Call Make_New_Sheet("nodeMass", "NodeUID", "X", "Y", "Z", "MX", "MY", "MZ")
   
-  Call Make_New_Sheet("elements", "Element", "Tag", "Type", "iNode", "jNode", "PropertyID", "Transform", "Group")
+  Call Make_New_Sheet("elements", "Element", "Tag", "Type", "iNode", "jNode", "PropertyID", "Transformation", "Group")
   
   'Loop through all floors
   Dim rng As Range
   Dim N As Long
   Dim floorName As String
+  Dim lastFloorName As String
   N = FloorPlan.Range("Floor_Plan_Center_Table").Rows.Count
-  Dim iFloor As Long
+  Dim iFloor As Integer
   Dim target As Worksheet
   Set target = Sheets("nodes")
   Dim nodeName As String
@@ -165,8 +166,8 @@ Sub Floors_and_Columns()
         Range("Floor_Plan_Center_Table").Cells(iFloor, 4).Value, _
         "=VLOOKUP(VLOOKUP(""" & floorName & """,Floor_Plan_Center_Table,2,FALSE),Grid,2,FALSE)", _
         "floor mass")
-      Call Add_Fixed_Node(nodeName, "Diaphragm")
-      Call Add_Nodal_Mass(nodeName, _
+      Call Add_Fixed_Node(centerNodeName, "Diaphragm")
+      Call Add_Nodal_Mass(centerNodeName, _
         Range("Floor_Plan_Center_Table").Cells(iFloor, 5), _
         Range("Floor_Plan_Center_Table").Cells(iFloor, 6))
     End If
@@ -199,17 +200,27 @@ Sub Floors_and_Columns()
     Next row
     
     'Third: Add every floor element to the list of elements
-    For Each row In Range("Floor_Plan_Elements_Horiz").Rows
-      Call Add_Element(floorName & row.Cells(1), _
-        row.Cells(2), _
-        floorName & row.Cells(3), _
-        floorName & row.Cells(4), _
-        row.Cells(5), _
-        row.Cells(6))
-    Next row
+    If iFloor <> 1 Then
+      For Each row In Range("Floor_Plan_Elements_Horiz").Rows
+        Call Add_Element(floorName & row.Cells(1), _
+          row.Cells(2), _
+          floorName & row.Cells(3), _
+          floorName & row.Cells(4), _
+          row.Cells(5), _
+          row.Cells(6))
+      Next row
     'Fourth: Add interstory elements (columns and walls)
-    For Each row In Range("Floor_Plan_Elements_Vert").Rows
-    Next row
+    
+      For Each row In Range("Floor_Plan_Elements_Vert").Rows
+        Call Add_Element(floorName & row.Cells(1), _
+          row.Cells(2), _
+          lastFloorName & row.Cells(3), _
+          floorName & row.Cells(3), _
+          row.Cells(4), _
+          row.Cells(5))
+      Next row
+    End If
+    lastFloorName = floorName
   Next iFloor
   
   'Formatting Tidbits

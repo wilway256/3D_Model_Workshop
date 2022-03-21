@@ -141,7 +141,7 @@ def define_transformations(db):
 def make_diaphragm_constraints(db):
     df = db.diaphragm
     for cNode in df.index:
-        mNode = df.at[cNode, 'MasterNode']
+        mNode = df.at[cNode, 'RetainedNode']
         mTag = db.get_node_tag(mNode)
         cTag = db.get_node_tag(cNode)
         ops.rigidDiaphragm(3, mTag, cTag)

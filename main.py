@@ -16,7 +16,7 @@ out_dir = make_output_directory()
 
 # %% Import Data
 print('Starting Import')
-model_filename = 'Model_Data.xlsm'
+model_filename = 'Model_Builder.xlsm'
 db = initialize_database(model_filename)
 save_input_file(model_filename, out_dir)
 
@@ -47,7 +47,7 @@ ops.pattern('Plain', 1, 1)
 # for node, load in zip(nodeList, loadList):
 #     ops.load(node, *[0.0, 0.0, load, 0.0, 0.0, 0.0])
 
-ops.load(db.get_node_tag('LWall1'), *[-100.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+ops.load(db.get_node_tag('F11_center'), *[-100.0, 0.0, 0.0, 0.0, 0.0, 10000.0])
 # ops.load(db.get_node_tag('F2 Corner4'), *[0.0, -1000.0, 0.0, 0.0, 0.0, 0.0])
 # ops.load(db.get_node_tag('F3 Center'), *[1000.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 

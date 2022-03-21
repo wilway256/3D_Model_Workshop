@@ -54,7 +54,7 @@ def initialize_database(filename):
 
     
     # Set the first column of each worksheet as the index.
-    for df in [dfNode, dfFix, dfEleList, dfEleType, dfDiaphragm, dfTransf]:
+    for df in [dfNode, dfFix, dfNodeMass, dfEleList, dfEleType, dfDiaphragm, dfTransf]:
         df.set_index(df.columns[0], inplace=True)
     
     class Database:
