@@ -18,7 +18,7 @@ def initialize_database(filename):
                                          'Group':str})
     
     dfFix = pandas.read_excel(filename, sheet_name='nodeFix')
-    dfFix = dfFix.iloc[:]=='Fixed'
+    dfFix.iloc[:, 1:] = dfFix.iloc[:, 1:]=='Fixed'
     
     dfNodeMass = pandas.read_excel(filename, sheet_name='nodeMass',
                                    dtype={'X':float, 'RX':float,
@@ -96,4 +96,4 @@ def initialize_database(filename):
 if __name__ == '__main__':
     import os
     os.chdir(r'../')
-    db = initialize_database(r'Model_Data.xlsm')
+    db = initialize_database(r'Model_Builder.xlsm')
