@@ -73,25 +73,3 @@ ops.analysis("Static")
 
 # m.run_analysis()
 a = ops.analyze(1)
-
-# %% Postprocessing
-nodes = ops.getNodeTags()
-ops.reactions()
-for n in nodes:
-    disps = ops.nodeDisp(n)
-    print('{:>10}'.format(db.get_node_name(n)), '{:15.5f}{:15.5f}{:15.5e}{:15.0f}{:15.0f}{:15.0f}'.format(*disps))
-    rxns = ops.nodeReaction(n)
-    print('          ', '{:15.3f}{:15.3f}{:15.3f}{:15.2f}{:15.2f}{:15.2f}\n'.format(*rxns))
-
-eles = db.get_ele_list()
-for e in eles:
-    response = ops.eleResponse(db.get_ele_tag(e), 'force')
-    print(f'{e:>10}', response)
-
-# %% Visualization
-import opsvis
-# opsvis.plot_model(node_labels=0, element_labels=0, offset_nd_label=False, axis_off=1,
-#                   az_el=(- 80.0, 30.0), fig_wi_he=(20.0, 20.0), fig_lbrt=(0.04, 0.04, 0.96, 0.96),
-#                   lw=0.1, local_axes=False, nodes_only=False, fmt_model='ko-')
-# opsvis.plot_defo(interpFlag=0)
-opsvis.plot_defo( az_el=(-60.0, 30.0) )
