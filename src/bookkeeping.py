@@ -14,8 +14,12 @@ def make_output_directory(name=None):
     if not name is None:
         filename = name
     else:
-        filename = input('Please name the output folder. Press enter to use the current date and time.\n')
+        filename = input('Please name the output folder. '
+                         'Press enter to make a temporary folder. '
+                         'Enter "time" to use the current date and time.\n')
         if filename == '':
+            filename = 'temp'
+        elif filename in ['t', 'time']:
             now = datetime.datetime.now()
             filename = now.strftime('%Y-%m-%d_%H%M')
     try:
@@ -25,8 +29,18 @@ def make_output_directory(name=None):
     try:
         os.mkdir('out/' + filename)
     except FileExistsError:
-        print('Folder already exists. Please choose a different name.')
-        make_output_directory(name=None)
+        newfilename = input('Folder already exists. Please choose a different '
+                            'name or press enter to overwrite the existing '
+                            'temp folder.\n')
+        if newfilename == '':
+            shutil.rmtree('out/' + filename)
+            os.mkdir('out/' + 'temp')
+        else:
+            try:
+                os.mkdir('out/' + newfilename)
+            except FileExistsError:
+                shutil.rmtree('out/' + newfilename)
+                os.mkdir('out/' + newfilename)
     return filename
 
 def save_input_file(name, output_directory):
@@ -47,3 +61,6 @@ def save_input_file(name, output_directory):
 
 def _check_if_exists(file):
     pass
+
+def _remove_output(folder):
+    shutil.rmtree('out/' + folder)
