@@ -55,9 +55,6 @@ ops.load(db.get_node_tag('F11_center'), *[-100.0, 0.0, 0.0, 0.0, 0.0, 10000.0])
 # load.gravity
 # load.
 
-# %% Recorders
-#r.make_node_rocorders(db)
-#r.make_ele_recorders(db)
 
 
 # %% Analysis
@@ -72,4 +69,12 @@ ops.algorithm("KrylovNewton")
 ops.analysis("Static")
 
 # m.run_analysis()
-a = ops.analyze(1)
+# a = ops.analyze(1)
+
+# %% Recorders
+#r.make_node_rocorders(db)
+#r.make_ele_recorders(db)
+ops.recorder('Node', '-xml', r'out/eigen.txt', '-node', 24, 22, '-dof', 1, 2, 6, 'eigen 0')
+ops.eigen(2)
+ops.record()
+ops.wipe()
