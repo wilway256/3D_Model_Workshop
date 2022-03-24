@@ -41,7 +41,7 @@ def make_output_directory(name=None):
             except FileExistsError:
                 shutil.rmtree('out/' + newfilename)
                 os.mkdir('out/' + newfilename)
-    return 'out/' + filename, filename
+    return 'out/' + filename + '/', filename
 
 def save_input_file(name, output_directory):
     keep_these = ['nodes', 'nodeFix', 'nodeMass', 'diaphragms', 'elements', 'eleProperties', 'eleTransf']

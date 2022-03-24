@@ -11,6 +11,8 @@ import openseespy.opensees as ops
 from src.excel_to_database import initialize_database
 from src.bookkeeping import make_output_directory, save_input_file
 
+ops.wipe()
+
 # %% Create Output Directory
 out_dir, out_folder = make_output_directory()
 
@@ -19,11 +21,10 @@ print('Starting Import')
 model_filename = 'Model_Builder.xlsm'
 db = initialize_database(model_filename)
 save_input_file(model_filename, out_folder)
-ops.logFile(out_dir + '/log.txt', '-noEcho')
+# ops.logFile(out_dir + 'log.txt', '-noEcho') # Must restart kernel if this is active.
 
 # %% Define Structure
 print('Defining Structure')
-ops.wipe()
 m.make_model('3D')
 
 m.define_nodes(db)
@@ -73,9 +74,11 @@ ops.analysis("Static")
 # a = ops.analyze(1)
 
 # %% Recorders
-#r.make_node_rocorders(db)
-#r.make_ele_recorders(db)
-ops.recorder('Node', '-xml', r'out/eigen.txt', '-node', 24, 22, '-dof', 1, 2, 6, 'eigen 0')
+# #r.make_node_rocorders(db)
+# #r.make_ele_recorders(db)
+ops.recorder('Node', '-xml', out_dir + 'eigen.xml', '-node', 24, 22, '-dof', 1, 2, 6, 'eigen 0')
 ops.eigen(2)
 ops.record()
-ops.wipe()
+
+ops.remove('recorders')
+# ops.wipe()
