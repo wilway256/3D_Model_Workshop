@@ -57,40 +57,42 @@ def initialize_database(filename):
     for df in [dfNode, dfFix, dfNodeMass, dfEleList, dfEleType, dfDiaphragm, dfTransf]:
         df.set_index(df.columns[0], inplace=True)
     
-    class Database:
-        node = dfNode
-        fixity = dfFix
-        nodeMass = dfNodeMass
-        nodeLoad = dfNodeLoad
-        ele = dfEleList
-        eleData = dfEleType
-        transf = dfTransf
-        diaphragm = dfDiaphragm
-        
-        def get_node_list(self):
-            index_list = list(self.node.index.values)
-            return index_list
-        
-        def get_ele_list(self):
-            index_list = list(self.ele.index.values)
-            return index_list
-        
-        def get_node_tag(self, nodeUID):
-            tag = int(self.node.at[nodeUID, 'Tag'])
-            return tag
-        
-        def get_node_name(self, nodeTag):
-            df = self.node
-            name = df.loc[ df['Tag'] == nodeTag ].index[0]
-            return name
-        
-        def get_ele_tag(self, eleUID):
-            tag = int(self.ele.at[eleUID, 'Tag'])
-            return tag
-    
-    database = Database()
+    database = Database(dfNode, dfFix, dfNodeMass, dfNodeLoad, dfEleList, dfEleType, dfTransf, dfDiaphragm)
     
     return database
+
+class Database:
+    
+    def __init__(self, dfNode, dfFix, dfNodeMass, dfNodeLoad, dfEleList, dfEleType, dfTransf, dfDiaphragm):
+        self.node = dfNode
+        self.fixity = dfFix
+        self.nodeMass = dfNodeMass
+        self.nodeLoad = dfNodeLoad
+        self.ele = dfEleList
+        self.eleData = dfEleType
+        self.transf = dfTransf
+        self.diaphragm = dfDiaphragm
+    
+    def get_node_list(self):
+        index_list = list(self.node.index.values)
+        return index_list
+    
+    def get_ele_list(self):
+        index_list = list(self.ele.index.values)
+        return index_list
+    
+    def get_node_tag(self, nodeUID):
+        tag = int(self.node.at[nodeUID, 'Tag'])
+        return tag
+    
+    def get_node_name(self, nodeTag):
+        df = self.node
+        name = df.loc[ df['Tag'] == nodeTag ].index[0]
+        return name
+    
+    def get_ele_tag(self, eleUID):
+        tag = int(self.ele.at[eleUID, 'Tag'])
+        return tag
 
 
 if __name__ == '__main__':
