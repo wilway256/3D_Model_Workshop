@@ -93,6 +93,26 @@ class Database:
     def get_ele_tag(self, eleUID):
         tag = int(self.ele.at[eleUID, 'Tag'])
         return tag
+    
+    def get_node_group(self, name, tag=True):
+        node_list = []
+        for i in range(len(self.node.index)):
+            if name in db.node.iloc[i]['Group']:
+                if tag:
+                    node_list.append(db.get_node_tag(db.node.iloc[i].name))
+                else:
+                    node_list.append(db.node.iloc[i].name)
+        return node_list
+    
+    def get_ele_group(self, name, tag=True):
+        node_list = []
+        for i in range(len(self.ele.index)):
+            if name in db.node.iloc[i]['Group']:
+                if tag:
+                    node_list.append(db.get_node_tag(db.node.iloc[i].name))
+                else:
+                    node_list.append(db.node.iloc[i].name)
+        return node_list
 
 
 if __name__ == '__main__':
