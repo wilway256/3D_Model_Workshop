@@ -22,10 +22,7 @@ def make_output_directory(name=None):
         elif filename in ['t', 'time']:
             now = datetime.datetime.now()
             filename = now.strftime('%Y-%m-%d_%H%M')
-    try:
-        os.mkdir('out')
-    except FileExistsError:
-        pass
+
     try:
         os.mkdir('out/' + filename)
     except FileExistsError:
