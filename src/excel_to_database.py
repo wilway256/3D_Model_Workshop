@@ -51,19 +51,23 @@ def initialize_database(filename):
     
     # %%% Constraints
     dfDiaphragm = pandas.read_excel(filename, sheet_name='diaphragms')
+    
+    # %%% Other
+    dfLoadCase = pandas.read_excel(filename, sheet_name='loadCases', 
+                                   dtype={'Steps':'Int64'})
 
     
     # Set the first column of each worksheet as the index.
-    for df in [dfNode, dfFix, dfNodeMass, dfEleList, dfEleType, dfDiaphragm, dfTransf]:
+    for df in [dfNode, dfFix, dfNodeMass, dfEleList, dfEleType, dfDiaphragm, dfTransf, dfLoadCase]:
         df.set_index(df.columns[0], inplace=True)
     
-    database = Database(dfNode, dfFix, dfNodeMass, dfNodeLoad, dfEleList, dfEleType, dfTransf, dfDiaphragm)
+    database = Database(dfNode, dfFix, dfNodeMass, dfNodeLoad, dfEleList, dfEleType, dfTransf, dfDiaphragm, dfLoadCase)
     
     return database
 
 class Database:
     
-    def __init__(self, dfNode, dfFix, dfNodeMass, dfNodeLoad, dfEleList, dfEleType, dfTransf, dfDiaphragm):
+    def __init__(self, dfNode, dfFix, dfNodeMass, dfNodeLoad, dfEleList, dfEleType, dfTransf, dfDiaphragm, dfLoadCase):
         self.node = dfNode
         self.fixity = dfFix
         self.nodeMass = dfNodeMass
@@ -72,6 +76,7 @@ class Database:
         self.eleData = dfEleType
         self.transf = dfTransf
         self.diaphragm = dfDiaphragm
+        self.loadCase = dfLoadCase
     
     def get_node_list(self):
         index_list = list(self.node.index.values)
