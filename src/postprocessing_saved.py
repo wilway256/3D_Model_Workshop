@@ -7,3 +7,8 @@ Created on Mon Nov 15 11:24:08 2021
 @author: wroser
 """
 
+import os
+
+def get_outdir():
+    subfolders = [f.path for f in os.scandir('out') if f.is_dir()]
+    return subfolders
