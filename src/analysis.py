@@ -57,20 +57,20 @@ def constant_analysis(db, case):
     tag = list(db.loadCase.index).index(case) + 1
     ops.timeSeries('Constant', tag)
     ops.pattern('Plain', tag, tag)
-    apply_nodal_loads(db, 'gravity')
+    apply_nodal_loads(db, case)
     
     # Analysis
-    print('a')
     ops.system("BandSPD")
-    print('b')
-    ops.numberer("Plain"); print ('c')
-    ops.constraints("Transformation"); print ('d')
-    ops.integrator("LoadControl", 1, 1); print ('e')
+    ops.numberer("Plain")
+    ops.constraints("Transformation")
+    ops.integrator("LoadControl", 1, 1)
     # Add later: pFlag = __ if option else 0
-    ops.test('NormUnbalance', 1e-12, 200, 1)
-    ops.algorithm("KrylovNewton"); print ('f')
-    ops.analysis("Static"); print ('g')
+    ops.test('NormUnbalance', 1e-6, 200, 1)
+    ops.algorithm("KrylovNewton")
+    ops.analysis("Static")
     ops.analyze(1)
+    ops.wipeAnalysis()
+    # ops.setTime(0.0)
 
 # def static_analysis(db, case):
 #     # Loads
@@ -113,3 +113,8 @@ def constant_analysis(db, case):
 #         if ok != 0 and dt >= min_dt:
 #             dt = dt/2
 #             recursive_analyze(1, dt)
+
+def reset_gravity(db):
+    tag = list(db.loadCase.index).index('gravity') + 1
+    ops.remove('timeSeries', tag)
+    ops.remove('loadPattern', tag)

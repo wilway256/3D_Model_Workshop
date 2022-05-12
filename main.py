@@ -10,7 +10,8 @@ import src.model as m
 import openseespy.opensees as ops
 from src.excel_to_database import initialize_database
 from src.bookkeeping import make_output_directory, save_input_file
-from src.analysis import constant_analysis
+from src.analysis import constant_analysis, reset_gravity
+from src.recorder import apply_recorders
 import os
 
 ops.wipe()
@@ -23,7 +24,7 @@ print('Starting Import')
 model_filename = 'Model_Builder.xlsm'
 db = initialize_database(model_filename)
 save_input_file(model_filename, out_folder)
-ops.logFile(out_dir + 'log.txt', '-noEcho') # Must restart kernel if this is active.
+# ops.logFile(out_dir + 'log.txt', '-noEcho') # Must restart kernel if this is active.
 
 # %% Define Structure
 print('Defining Structure')
@@ -56,11 +57,12 @@ m.make_elements(db)
 # # ops.load(db.get_node_tag('F3 Center'), *[1000.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
 
-# %% Load Cases
+# %% Loop through Each Load Case
 print("Analysis Loop")
 loadCases = db.loadCase.query('Run == "Y"')
 
 for case in loadCases.index:
+    print('\n== Starting New Load Case: ' + case + ' ==')
     # Make output subfolders
     try:
         os.mkdir(out_dir + '/' + case)
@@ -68,12 +70,24 @@ for case in loadCases.index:
         pass
     
     # Recorders
-    
-    
+    apply_recorders(db, case, out_dir + '/' + case + '/')
+    ops.recorder('EnvelopeNode', '-xml', 'out/temp/lateral2/nodeEnv.xml', '-time', '-node', *[1,10,100], '-dof', *[1,2], 'disp')
+    ops.recorder('EnvelopeNode', '-file', 'out/temp/lateral2/nodeEnv.txt', '-time', '-node', *[1,10,100], '-dof', *[1,2], 'disp')
+    ops.recorder('Node', '-file', 'out/temp/lateral2/node.txt', '-time', '-node', *[1,10,100], '-dof', *[1,2], 'disp')
+    ops.recorder('Node', '-xml', 'out/temp/lateral2/node.xml', '-time', '-node', *[1,10,100], '-dof', *[1,2], 'disp')
+    ops.recorder('Node', '-file', 'out/temp/lateral2/nodenot.txt', '-node', *[1,10,100], '-dof', *[1,2], 'disp')
+    ops.recorder('Node', '-xml', 'out/temp/lateral2/nodenot.xml', '-node', *[1,10,100], '-dof', *[1,2], 'disp')
     # Gravity (or other constant load case)
     print('Applying Gravity')
     constant_analysis(db, 'gravity')
     
+    # Constant
+    if loadCases['Type'][case] == 'Const':
+        ops.recorder('Element', '-xml', 'out/temp/lateral2/ele.xml', '-time', '-ele', *[1,10,100], 'force')
+        ops.recorder('EnvelopeElement', '-xml', 'out/temp/lateral2/eleEnv.xml', '-time', '-ele', *[1,10,100], 'force')
+        
+        constant_analysis(db, case)
+        
     # Static
     if loadCases['Type'][case] == 'Static':
         print("static if")
@@ -85,11 +99,12 @@ for case in loadCases.index:
     # Dynamic
     elif loadCases['Type'][case] == 'GM':
         print("dynamic if")
-        pass
+        
+    reset_gravity(db)
+    ops.remove('recorders')
     
     
-print('Out of Loop')
+print('\nOut of Loop')
 
-# # ops.remove('recorders')
-# # ops.wipe()
+ops.wipe()
 
