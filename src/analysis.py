@@ -65,32 +65,72 @@ def constant_analysis(db, case):
     ops.constraints("Transformation")
     ops.integrator("LoadControl", 1, 1)
     # Add later: pFlag = __ if option else 0
-    ops.test('NormUnbalance', 1e-6, 200, 1)
+    ops.test('NormUnbalance', 1e-6, 200, 0)
     ops.algorithm("KrylovNewton")
     ops.analysis("Static")
     ops.analyze(1)
     ops.wipeAnalysis()
-    # ops.setTime(0.0)
+    ops.setTime(0.0)
+    if case != 'gravity':
+        ops.remove('timeSeries', tag)
+        ops.remove('loadPattern', tag)
 
-# def static_analysis(db, case):
-#     # Loads
-#     tag = list(db.loadCase.index).index(case) + 1 # ensures no tag repeat
-#     print(tag)
-#     ops.timeSeries('Linear', tag)
-#     ops.pattern('Plain', tag, tag)
-#     apply_nodal_loads(db, case)
-#     print('Loads COmplete')
-#     # Analysis
-#     ops.system("BandSPD")
-#     ops.numberer("Plain")
-#     ops.constraints("Transformation")
-#     ops.test('EnergyIncr', 1e-6, 100)
-#     ops.integrator("LoadControl", 0.1, 10)
-#     ops.algorithm("KrylovNewton")
-#     ops.analysis("Static")
-#     recursive_analyze_static()
+def static_analysis(db, case):
+    # Number of steps
+    loadFactor = db.loadCase.loc[case]['Incr']
+    N = int(db.loadCase.loc[case]['Nsteps'])
+    
+    # Loads
+    tag = list(db.loadCase.index).index(case) + 1 # ensures no tag repeat
+    ops.timeSeries('Linear', tag)
+    ops.pattern('Plain', tag, tag)
+    apply_nodal_loads(db, case)
+    
+    # Analysis
+    ops.system("BandSPD")
+    ops.numberer("Plain")
+    ops.constraints("Transformation")
+    # Add later: pFlag = __ if option else 0
+    ops.test('EnergyIncr', 1e-6, 100)
+    ops.integrator("LoadControl", loadFactor)
+    ops.algorithm("KrylovNewton")
+    ops.analysis("Static")
+    ops.analyze(N)
+    ops.wipeAnalysis()
+    # recursive_analyze_static()
+    ops.remove('timeSeries', tag)
+    ops.remove('loadPattern', tag)
+    
 
-# def displacement_analysis(db, case):
+def displacement_analysis(db, case):
+    dofmap = {'X':1, 'Y':2, 'Z':3, 'MX':4, 'MY':5, 'MZ':6}
+    # Number of steps
+    loadFactor = db.loadCase.loc[case]['Incr']
+    N = int(db.loadCase.loc[case]['Nsteps'])
+    nodeTag = db.get_node_tag(db.loadCase.loc[case]['Reference'])
+    dof = dofmap[db.loadCase.loc[case]['Disp DOF']]
+    print(nodeTag, dof)
+    
+    # Loads
+    tag = list(db.loadCase.index).index(case) + 1 # ensures no tag repeat
+    ops.timeSeries('Linear', tag)
+    ops.pattern('Plain', tag, tag)
+    apply_nodal_loads(db, case)
+    
+    # Analysis
+    ops.system("BandSPD")
+    ops.numberer("Plain")
+    ops.constraints("Transformation")
+    # Add later: pFlag = __ if option else 0
+    ops.test('EnergyIncr', 1e-6, 100)
+    ops.integrator("DisplacementControl", nodeTag, dof, loadFactor)
+    ops.algorithm("KrylovNewton")
+    ops.analysis("Static")
+    ops.analyze(N)
+    
+    ops.wipeAnalysis()
+    ops.remove('timeSeries', tag)
+    ops.remove('loadPattern', tag)
     
 #     pass
 

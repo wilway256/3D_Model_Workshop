@@ -10,7 +10,7 @@ import src.model as m
 import openseespy.opensees as ops
 from src.excel_to_database import initialize_database
 from src.bookkeeping import make_output_directory, save_input_file
-from src.analysis import constant_analysis, reset_gravity
+import src.analysis as analysis
 from src.recorder import apply_recorders
 import os
 
@@ -63,46 +63,42 @@ loadCases = db.loadCase.query('Run == "Y"')
 
 for case in loadCases.index:
     print('\n== Starting New Load Case: ' + case + ' ==')
+    
     # Make output subfolders
     try:
         os.mkdir(out_dir + '/' + case)
     except FileExistsError:
         pass
     
+    # Gravity (or other constant load case)
+    analysis.constant_analysis(db, 'gravity')
+    
     # Recorders
     apply_recorders(db, case, out_dir + '/' + case + '/')
-    ops.recorder('EnvelopeNode', '-xml', 'out/temp/lateral2/nodeEnv.xml', '-time', '-node', *[1,10,100], '-dof', *[1,2], 'disp')
-    ops.recorder('EnvelopeNode', '-file', 'out/temp/lateral2/nodeEnv.txt', '-time', '-node', *[1,10,100], '-dof', *[1,2], 'disp')
-    ops.recorder('Node', '-file', 'out/temp/lateral2/node.txt', '-time', '-node', *[1,10,100], '-dof', *[1,2], 'disp')
-    ops.recorder('Node', '-xml', 'out/temp/lateral2/node.xml', '-time', '-node', *[1,10,100], '-dof', *[1,2], 'disp')
-    ops.recorder('Node', '-file', 'out/temp/lateral2/nodenot.txt', '-node', *[1,10,100], '-dof', *[1,2], 'disp')
-    ops.recorder('Node', '-xml', 'out/temp/lateral2/nodenot.xml', '-node', *[1,10,100], '-dof', *[1,2], 'disp')
-    # Gravity (or other constant load case)
-    print('Applying Gravity')
-    constant_analysis(db, 'gravity')
-    
+    ops.record()
+   
     # Constant
     if loadCases['Type'][case] == 'Const':
-        ops.recorder('Element', '-xml', 'out/temp/lateral2/ele.xml', '-time', '-ele', *[1,10,100], 'force')
-        ops.recorder('EnvelopeElement', '-xml', 'out/temp/lateral2/eleEnv.xml', '-time', '-ele', *[1,10,100], 'force')
-        
-        constant_analysis(db, case)
+        analysis.constant_analysis(db, case)
+        print('const if')
         
     # Static
     if loadCases['Type'][case] == 'Static':
+        analysis.static_analysis(db, case)
         print("static if")
     
     # Pushover (displacement control)
-    elif loadCases['Type'][case] == 'Disp':\
+    elif loadCases['Type'][case] == 'Disp':
+        analysis.displacement_analysis(db, case)
         print("disp ctrl if")
     
     # Dynamic
     elif loadCases['Type'][case] == 'GM':
         print("dynamic if")
-        
-    reset_gravity(db)
-    ops.remove('recorders')
     
+    analysis.reset_gravity(db)
+    ops.remove('recorders')
+    ops.reset()
     
 print('\nOut of Loop')
 
