@@ -34,38 +34,67 @@ Created on Mon Nov 15 11:24:08 2021
 # opsvis.plot_mode_shape(1, interpFlag=0)
 
 # %% XML Parser
+import os
 import xml.etree.ElementTree as ET
 import numpy as np
 import pandas as pd
+from src.excel_to_database import initialize_database
+from tkinter.filedialog import askopenfilename
 
 
-outdir = 'out/triangle/'
-file = 'node_t.xml'
-filepath = outdir + file
-tree = ET.parse(filepath)
-root = tree.getroot()
+def xml_to_df(filepath):
+    # outdir = 'out/triangle/'
+    # file = 'node_t.xml'
+    # filepath = outdir + file
+    # model_filename = askopenfilename()
+    # db = initialize_database(model_filename)
+    
+    # Get database from Excel
+    a = filepath.split('/')
+    i = filepath.find(a[-2]+'/'+a[-1])
+    db_path = filepath[:i]
+    
+    for file in os.listdir(db_path):
+        if file[:-1].endswith('.xls'):
+            print(db_path + file)
+            db = initialize_database(db_path + file)
+    
+    tree = ET.parse(filepath)
+    root = tree.getroot()
+    
+    column_names = []
+    hierarchy = {}
+    
+    for element in root.iter():
 
-column_names = []
+        if element.tag == 'TimeOutput':
+            column_names.append(element[0].text)
 
-for element in root.iter():
-    # print(element.tag)
-    if element.tag == 'TimeOutput':
-        column_names.append(element[0].text)
-        print('    ', element[0].text)
-    elif element.tag == 'NodeOutput':
-        nodeTag = element.attrib['nodeTag']
-        for response in range(len(element)):
-            column_names.append('Node_' + nodeTag + ' ' + element[response].text)
-            print('    ', 'Node', nodeTag, element[response].text)
+        elif element.tag == 'NodeOutput':
+            nodeTag = element.attrib['nodeTag']
+            nodeName = db.get_node_name(int(nodeTag))
+            hierarchy[nodeName] = []
+            for response in range(len(element)):
+                column_names.append(nodeName + ' ' + element[response].text)
+                hierarchy[nodeName].append(element[response].text)
+    
+    
+    data = root.find('Data').text
+    data = data.strip().split('\n')
+    for i in range(len(data)):
+        data[i] = data[i].split()
+        for j in range(len(data[i])):
+            data[i][j] = float(data[i][j])
+    data = np.asarray(data)
+    
+    df = pd.DataFrame(data, columns=column_names)
+    
+    return df, hierarchy
 
+# df.plot(0,8)
 
-data = root.find('Data').text
-data = data.strip().split('\n')
-for i in range(len(data)):
-    data[i] = data[i].split()
-    for j in range(len(data[i])):
-        data[i][j] = float(data[i][j])
-data = np.asarray(data)
-
-df = pd.DataFrame(data, columns=column_names)
-
+if __name__ == '__main__':
+    outdir = 'out/temp/dispX/'
+    file = 'center_disp.xml'
+    filepath = outdir + file
+    df, _ = xml_to_df(filepath)

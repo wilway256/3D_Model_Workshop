@@ -15,6 +15,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 import xml.etree.ElementTree as ET
 import numpy as np
 import pandas as pd
+from postprocessing import xml_to_df
 
 class App(tk.Tk):
     def __init__(self):
@@ -37,7 +38,7 @@ class App(tk.Tk):
         self.toolbar.update()
         self.canvas.get_tk_widget().pack(side=tk.BOTTOM)
         
-        # 
+        # X-axis selection
         self.selectFrame = ttk.LabelFrame(self.lFrame, text='text', padding=10)
         self.selectFrame.pack(side=tk.TOP, expand=True, fill='both')
         # ttk.Label(self.selectFrame, text="Hello World!").pack()
@@ -48,6 +49,11 @@ class App(tk.Tk):
         for name in self.df.columns:
             self.listbox.insert('end', name)
         self.listbox.pack()
+        
+        # Treeview
+        # self.tree = ttk.Treeview(self.selectFrame)
+        # self.tree.pack()
+        
     
     def update_plot(self):
         columns = [self.df.columns[i] for i in self.listbox.curselection()]
@@ -57,38 +63,47 @@ class App(tk.Tk):
             self.canvas.draw()
     #     print(self.listbox.curselection(), results)
     #     return results
+        # print(self.tree.selection())
     
     def pick_file(self):
         filepath = tk.filedialog.askopenfilename(initialdir='./out', filetypes=[('XML Recorder', '*.xml')])
-        tree = ET.parse(filepath)
-        root = tree.getroot()
+        self.df, self.hierarchy = xml_to_df(filepath)
+        print(filepath)
+        # tree = ET.parse(filepath)
+        # root = tree.getroot()
         
-        # Parse data labels
-        column_names = []
+        # # Parse data labels
+        # column_names = []
         
-        for element in root.iter():
-            # print(element.tag)
-            if element.tag == 'TimeOutput':
-                column_names.append(element[0].text)
-            elif element.tag == 'NodeOutput':
-                nodeTag = element.attrib['nodeTag']
-                for response in range(len(element)):
-                    column_names.append('Node_' + nodeTag + ' ' + element[response].text)
         
-        # Parse numerical data from recorder, return numpy array
-        data = root.find('Data').text
-        data = data.strip().split('\n')
-        for i in range(len(data)):
-            data[i] = data[i].split()
-            for j in range(len(data[i])):
-                data[i][j] = float(data[i][j])
-        data = np.asarray(data)
+        # for element in root.iter():
+        #     # print(element.tag)
+        #     if element.tag == 'TimeOutput':
+        #         column_names.append(element[0].text)
+        #     elif element.tag == 'NodeOutput':
+        #         nodeTag = element.attrib['nodeTag']
+        #         for response in range(len(element)):
+        #             column_names.append('Node_' + nodeTag + ' ' + element[response].text)
+        
+        # # Parse numerical data from recorder, return numpy array
+        # data = root.find('Data').text
+        # data = data.strip().split('\n')
+        # for i in range(len(data)):
+        #     data[i] = data[i].split()
+        #     for j in range(len(data[i])):
+        #         data[i][j] = float(data[i][j])
+        # data = np.asarray(data)
         
         # Assign to class dataframe
-        self.df = pd.DataFrame(data, columns=column_names)
+        # self.df = pd.DataFrame(data, columns=column_names)
         self.listbox.delete(0, tk.END)
         for name in self.df.columns:
             self.listbox.insert('end', name)
+       
+        # for name, i in zip(self.hierarchy, range(len(self.hierarchy))):
+        #     self.tree.insert('', i, name, text=name)
+        #     for response in self.hierarchy[name]:
+        #         self.tree.insert(name, 'end', name + ' ' + response, text=response)
 
 if __name__ == '__main__':
     app = App()
