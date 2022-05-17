@@ -311,8 +311,8 @@ Sub Discretize_Element(name As String, N As Integer)
   For i = 1 To N - 1
     Call Add_Node(eleName & "-" & i, _
                   ix + i * (jx - ix) / N, _
-                  ix + i * (jx - ix) / N, _
-                  ix + i * (jx - ix) / N, _
+                  iy + i * (jy - iy) / N, _
+                  iz + i * (jz - iz) / N, _
                   nodeGroup, "discr")
   Next i
   
