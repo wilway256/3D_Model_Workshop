@@ -5,3 +5,5 @@ out/
 *.rvt
 ~$Model_Builder.xlsm
 __pycache__/postprocessing.cpython-38.pyc
+gm/*
+!gm/gm_reader.py
