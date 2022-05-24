@@ -5,9 +5,13 @@ Created on Tue Mar 22 16:25:13 2022
 @author: wroser
 """
 
+import tkinter as tk
+from tkinter import ttk
 import os
 import openseespy.opensees as ops
 from src.loads import apply_nodal_loads
+import gm.gm_reader as gm
+import matplotlib.pyplot as plt
 
 # Module-level variables
 timeSeriesTag = 2
@@ -108,7 +112,7 @@ def displacement_analysis(db, case):
     loadFactor = db.loadCase.loc[case]['Incr']
     N = int(db.loadCase.loc[case]['Nsteps'])
     nodeTag = db.get_node_tag(db.loadCase.loc[case]['Reference'])
-    dof = dofmap[db.loadCase.loc[case]['Disp DOF']]
+    dof = dofmap[db.loadCase.loc[case]['DOF']]
     print(nodeTag, dof)
     
     # Loads
@@ -134,11 +138,75 @@ def displacement_analysis(db, case):
     
 #     pass
 
-# def dynamic_analysis(db, case):
-#     tag = list(db.loadCase.index).index(case) + 1
-#     # ops.timeSeries(, tag)
-#     # ops.pattern(, tag, tag)
-#     pass
+def dynamic_analysis(db, case, g=386.4):
+    dofmap = {'X':1, 'Y':2, 'Z':3, 'MX':4, 'MY':5, 'MZ':6}
+    dof = dofmap[db.loadCase.loc[case]['DOF']]
+    
+    tag = list(db.loadCase.index).index(case) + 1
+    
+    N = db.loadCase.loc[case]['Nsteps']
+    dt_analysis = db.loadCase.loc[case]['Incr']
+    
+    filepath = db.loadCase.loc[case]['Reference']
+    with open(filepath) as file:
+        ispeer = gm.is_PEER(file)
+    
+    if ispeer:
+        print('Reading PEER file...')
+        values, dt = gm.PEER_to_list(filepath)
+        ops.timeSeries('Path', tag, '-dt', dt, '-values', *values, '-factor', g)
+        if N == 1:
+            N = len(values)
+    else:
+        print('Reading txt file...')
+        dt = db.loadCase.loc[case]['Incr']
+        ops.timeSeries('Path', tag, '-dt', dt, '-filePath', filepath, '-factor', g)
+        if N == 1:
+            with open(filepath) as file:
+                N = len(file.readlines())
+    ops.pattern('UniformExcitation', tag, dof, '-accel', tag)
+    
+    # Analysis
+    ops.system("BandSPD")
+    ops.numberer("Plain")
+    ops.constraints("Transformation")
+    # Add later: pFlag = __ if option else 0
+    # ops.test('NormUnbalance', 1e-6, 100, 2)
+    ops.integrator('Newmark', 1/2, 1/4)
+    # ops.integrator('CentralDifference')
+    ops.algorithm("ModifiedNewton")
+    ops.analysis("Transient")
+    
+    A = Convergence_Plot()
+    
+    
+    # # ops.analyze(int(N), float(dt_analysis))
+    for i in range(N):
+        if (i+1)%100 == 0:
+            print("Step: ", i+1)
+        A.see_convergence(1, float(dt_analysis), 1e-6)
+    #     ok = ops.analyze(1, float(dt_analysis))
+    #     if ok == 0:
+    #         A.add_step()
+        
+    #     # if (i+1)%10:
+    #     #     print('{:8.3f}{:5d}{:10.2e}   {:d}'.format(dt_analysis*(i+1), ops.testIter(), ops.testNorm()[0], ok))
+    #     else:
+    #         ops.test('NormUnbalance', 1e-5, 100, 1)
+    #         ok = ops.analyze(1, float(dt_analysis))
+    #         if ok == 0:
+    #             A.add_step()
+            
+    #         else:
+    #             print('BAD')
+    #             break
+    #         A.add_step()
+        # A.add_step()
+    A.plot()
+    # ops.wipeAnalysis()
+    # ops.remove('timeSeries', tag)
+    # ops.remove('loadPattern', tag)
+    
 
 # def recursive_analyze_static(n, dt, min_dt=1e-6):
 #     for i in range(n):
@@ -154,7 +222,39 @@ def displacement_analysis(db, case):
 #             dt = dt/2
 #             recursive_analyze(1, dt)
 
+def guaranteed_convergence(N, dt, maxFactor=100):
+    ok = ops.analyze(1, float(dt_analysis))
+    pass
+
 def reset_gravity(db):
     tag = list(db.loadCase.index).index('gravity') + 1
     ops.remove('timeSeries', tag)
     ops.remove('loadPattern', tag)
+    
+def update_progress_label(step, dt):
+    return 'Step: {:d}   Time: {:.3f}'.format(step, dt)
+
+class Convergence_Plot():
+    def __init__(self):
+        self.Norms = []
+    
+    def add_step(self):
+        norms = ops.testNorm()
+        iters = ops.testIter()
+        # print(iters, norms)
+        for i in range(iters):
+            self.Norms.append(norms[i])
+    
+    def plot(self):
+        plt.figure()
+        plt.semilogy(self.Norms, 'k-x')
+        plt.grid()
+        
+    def see_convergence(self, N, dt, start_lim):
+        ops.test('NormUnbalance', start_lim, 200)
+        ok = ops.analyze(N, dt)
+        if ok == 0:
+            self.add_step()
+        else:
+            self.see_convergence(N, dt, start_lim*10)
+        pass

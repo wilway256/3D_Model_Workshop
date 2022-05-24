@@ -6,6 +6,7 @@ Created on Mon Nov 15 10:44:00 2021
 """
 
 # from src.excel_to_database import dfEle
+from math import sqrt, pi
 import src.model as m
 import openseespy.opensees as ops
 from src.excel_to_database import initialize_database
@@ -24,7 +25,7 @@ print('Starting Import')
 model_filename = 'Model_Builder.xlsm'
 db = initialize_database(model_filename)
 save_input_file(model_filename, out_folder)
-# ops.logFile(out_dir + 'log.txt', '-noEcho') # Must restart kernel if this is active.
+ops.logFile(out_dir + 'log.txt', '-noEcho') # Must restart kernel if this is active.
 
 # %% Define Structure
 print('Defining Structure')
@@ -56,6 +57,15 @@ m.make_elements(db)
 # # ops.load(db.get_node_tag('F2 Corner4'), *[0.0, -1000.0, 0.0, 0.0, 0.0, 0.0])
 # # ops.load(db.get_node_tag('F3 Center'), *[1000.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
+# %% Eigenvalue Analysis
+eig = ops.eigen(5)
+Tn = [2*pi/sqrt(w2) for w2 in eig]
+print(Tn)
+
+# %% Damping
+damp_ratio = 0.05
+
+ops.rayleigh(0, 0, 0, 2*damp_ratio*Tn[0])
 
 # %% Loop through Each Load Case
 print("Analysis Loop")
@@ -93,8 +103,9 @@ for case in loadCases.index:
         print("disp ctrl if")
     
     # Dynamic
-    elif loadCases['Type'][case] == 'GM':
+    elif loadCases['Type'][case] == 'EQ':
         print("dynamic if")
+        analysis.dynamic_analysis(db, case)
     
     analysis.reset_gravity(db)
     ops.remove('recorders')
@@ -102,5 +113,5 @@ for case in loadCases.index:
     
 print('\nOut of Loop')
 
-ops.wipe()
+# ops.wipe()
 

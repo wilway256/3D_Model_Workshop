@@ -94,7 +94,7 @@ def xml_to_df(filepath):
 # df.plot(0,8)
 
 if __name__ == '__main__':
-    outdir = 'out/temp/dispX/'
+    outdir = 'out/temp/gm1/'
     file = 'center_disp.xml'
     filepath = outdir + file
     df, _ = xml_to_df(filepath)

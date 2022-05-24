@@ -11,6 +11,7 @@ Reads ground motion input files
 # %% Imports
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 # %% Code
 def is_PEER(file):
@@ -115,10 +116,12 @@ def plot_gm(file, dt=None):
     None.
 
     '''
-    if dt ==None:
-        print("William hasn't added this feature yet.")
+    if is_PEER(file):
         pass
     else:
+        if dt ==None:
+            dt = float(input("Please enter dt: "))
+        
         data = [float(line) for line in file.readlines()]
         N = len(data)
         last = N*dt - dt
@@ -128,14 +131,34 @@ def plot_gm(file, dt=None):
         plt.style.use('bmh')
         plt.plot(t, data, linewidth=1)
         plt.xlim((0, last))
+        
+def pick_and_plot(folder='.'):
+    gm_files = os.listdir(folder)
+    temp= []
+    i = 1
+    print('\nPlease choose a file:\n')
+    for filename in gm_files:
+        if filename.endswith('.txt'):# or filename.endswith('.AT2'):
+            temp.append(filename)
+            print('{:3d}   {}'.format(i, filename))
+            i += 1
+    gm_files = temp
+    
+    choice = int(input())-1
+    print('You selected:', temp[choice])
+    with open(folder + '/' + gm_files[choice]) as file:
+        plot_gm(file)
+    
 
 if __name__ == '__main__':
-    # files = ['input.txt', 'RSN825_CAPEMEND_CPM000.txt', 'RSN825_CAPEMEND_CPM090.txt']
-    # for i in files:
-    #     with open(i) as file:
-    #         plot_gm(file, 0.05)
+    files = ['input.txt', 'RSN825_CAPEMEND_CPM000.txt', 'RSN825_CAPEMEND_CPM090.txt', 'RSN942_NORTHR_ALH090.txt']
+    for i in files:
+        with open(i) as file:
+            plot_gm(file, 0.05)
     
     # PEER_to_txt('RSN942_NORTHR_ALH090.AT2')
     
-    l, a, b = PEER_to_list('RSN942_NORTHR_ALH090.AT2')
+    # l, a, b = PEER_to_list('RSN942_NORTHR_ALH090.AT2')
+    
+    
     

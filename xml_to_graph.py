@@ -29,7 +29,7 @@ class App(tk.Tk):
         self.rFrame.pack(side=tk.RIGHT, padx=10, pady=10)
         
         # Matplotlib figure
-        self.fig = mpl.figure.Figure(figsize=(5, 4), dpi=100)
+        self.fig = mpl.figure.Figure(figsize=(10, 8), dpi=100)
         self.ax = self.fig.add_subplot(1, 1, 1)
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.rFrame)
         self.canvas.draw()
@@ -45,7 +45,7 @@ class App(tk.Tk):
         ttk.Button(self.selectFrame, text="Pick File", command=self.pick_file).pack(side=tk.BOTTOM)
         # ttk.Button(self.lFrame, text="File", command=get_file).pack(side=tk.BOTTOM)
         ttk.Button(self.lFrame, text="Plot", command=self.update_plot).pack()
-        self.listbox = tk.Listbox(self.selectFrame, selectmode='multiple')
+        self.listbox = tk.Listbox(self.selectFrame, selectmode='multiple', width=30, height=30)
         for name in self.df.columns:
             self.listbox.insert('end', name)
         self.listbox.pack()
@@ -59,7 +59,9 @@ class App(tk.Tk):
         columns = [self.df.columns[i] for i in self.listbox.curselection()]
         self.ax.clear()
         for i in columns:
-            self.ax.plot(self.df['time'], self.df[i])
+            self.ax.plot(self.df['time'], self.df[i],
+                         linewidth=0.5)
+            self.ax.grid()
             self.canvas.draw()
     #     print(self.listbox.curselection(), results)
     #     return results
