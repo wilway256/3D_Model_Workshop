@@ -1,4 +1,4 @@
-Attribute VB_Name = "Model"
+Attribute VB_Name = "Model_Commands"
 Option Explicit
 
 Function Worksheet_Exists(sheetName As String) As Boolean
@@ -164,103 +164,6 @@ Sub Add_Element(eleName As String, eleType As String, iNode As String, jNode As 
   End With
 End Sub
 
-Sub Floors_and_Columns()
-  
-  'Create new sheets
-  Call Make_New_Sheet("nodes", "NodeUID", "Tag", "X", "Y", "Z", "Group")
-  Call Make_New_Sheet("nodeFix", "NodeID", "X", "Y", "Z", "MX", "MY", "MZ")
-  Call Make_New_Sheet("diaphragms", "ConstrainedNode", "RetainedNode")
-  Call Make_New_Sheet("nodeMass", "NodeUID", "X", "Y", "Z", "MX", "MY", "MZ")
-  
-  Call Make_New_Sheet("elements", "Element", "Tag", "Type", "iNode", "jNode", "PropertyID", "Transformation", "Group")
-  
-  'Loop through all floors
-  Dim rng As Range
-  Dim N As Long
-  Dim floorName As String
-  Dim lastFloorName As String
-  N = FloorPlan.Range("Floor_Plan_Center_Table").Rows.Count
-  Dim iFloor As Integer
-  Dim target As Worksheet
-  Set target = Sheets("nodes")
-  Dim nodeName As String
-  Dim centerNodeName As String
-  For iFloor = 1 To N Step 1
-    floorName = Range("Floor_Plan_Center_Table").Cells(iFloor, 1).Value
-    centerNodeName = floorName & "_center"
-    'First, add diaphragm nodes to each floor except the first
-    If iFloor <> 1 Then
-      Call Add_Node(centerNodeName, _
-        Range("Floor_Plan_Center_Table").Cells(iFloor, 3).Value, _
-        Range("Floor_Plan_Center_Table").Cells(iFloor, 4).Value, _
-        "=VLOOKUP(VLOOKUP(""" & floorName & """,Floor_Plan_Center_Table,2,FALSE),Grid,2,FALSE)", _
-        "floor mass")
-      Call Add_Fixed_Node(centerNodeName, "Diaphragm")
-      Call Add_Nodal_Mass(centerNodeName, _
-        Range("Floor_Plan_Center_Table").Cells(iFloor, 5), _
-        Range("Floor_Plan_Center_Table").Cells(iFloor, 6))
-    End If
-    
-    'Second: Add every node on floor to the list of nodes.
-    Dim row As Range
-    For Each row In Range("Floor_Plan_Node_Table").Rows
-      'Create node. Pass over nodes that do not exist on ground floor.
-      nodeName = floorName & row.Cells(1).Value
-      If iFloor <> 1 Or row.Cells(5).Value <> "None" Then
-        Call Add_Node( _
-          floorName & row.Cells(1).Value, _
-          "=VLOOKUP(""" & row.Cells(2).Value & """,Grid,2,FALSE)", _
-          "=VLOOKUP(""" & row.Cells(3).Value & """,Grid,2,FALSE)", _
-          "=VLOOKUP(VLOOKUP(""" & floorName & """,Floor_Plan_Center_Table,2,FALSE),Grid,2,FALSE)", _
-          floorName, row.Cells(1, 6).Value)
-      End If
-      
-      'Create supports on ground floor
-      If iFloor = 1 And row.Cells(1, 5).Value <> "None" Then
-        Call Add_Fixed_Node(nodeName, fixity:=row.Cells(1, 5).Value)
-        'Add "support" to node group
-        Call Add_Group_Tag(Sheets("nodes").Cells(Next_Row("nodes") - 1, 6), "base support")
-        
-      'Add nodes to diaphragm constraints.
-      ElseIf iFloor <> 1 And row.Cells(4) Then
-        Call Add_Diaphragm_Constraint(nodeName, centerNodeName)
-      End If
-      
-    Next row
-    
-    'Third: Add every floor element to the list of elements
-    If iFloor <> 1 Then
-      For Each row In Range("Floor_Plan_Elements_Horiz").Rows
-        Call Add_Element(floorName & row.Cells(1), _
-          row.Cells(2), _
-          floorName & row.Cells(3), _
-          floorName & row.Cells(4), _
-          row.Cells(5), _
-          row.Cells(6))
-      Next row
-    'Fourth: Add interstory elements (columns and walls)
-    
-      For Each row In Range("Floor_Plan_Elements_Vert").Rows
-        Call Add_Element(floorName & row.Cells(1), _
-          row.Cells(2), _
-          lastFloorName & row.Cells(3), _
-          floorName & row.Cells(3), _
-          row.Cells(4), _
-          row.Cells(5))
-      Next row
-    End If
-    lastFloorName = floorName
-  Next iFloor
-  
-  'Formatting Tidbits
-  Sheets("nodes").Columns(6).AutoFit
-  Sheets("diaphragms").Range("A:B").ColumnWidth = 20
-  Sheets("elements").Columns("A").AutoFit
-  Sheets("elements").Columns("C").ColumnWidth = 18.5
-  Sheets("elements").Columns("F:G").ColumnWidth = 13.8
-  Sheets("elements").Columns("H").AutoFit
-End Sub
-
 Sub Get_Grid_Coord(name As String)
   
 End Sub
@@ -287,7 +190,7 @@ Sub Discretize_Element(name As String, N As Integer)
   eleProperty = eleTable.Cells(iRow, 6).Value
   eleTransform = eleTable.Cells(iRow, 7).Value
   eleGroup = eleTable.Cells(iRow, 8).Value
-  If eleGroup <> "" Then
+  If eleGroup <> "" Then 'Remove final semicolon
     eleGroup = Left(eleGroup, Len(eleGroup) - 1)
   End If
   
@@ -331,20 +234,64 @@ Sub Discretize_Element(name As String, N As Integer)
       Call Add_Element(newName, eleType, eleName & "-" & (i - 1), eleName & "-" & i, eleProperty, eleTransform, eleGroup)
     End If
   Next i
-  'Change last element name and iNode
   
 End Sub
 
-Sub Cut_Element(eleName As String, x As Double, append As String)
+Sub Cut_Element(eleName As String, distance As Double, append As String)
+  
   Dim newName As String
   newName = eleName & "_" & append
   'Get information about original element
-  'Dim eleType As String, iNode As String, jNode As String, property As String, transformation As String, group As String
+  
+  Dim eleTable As Range
+  Set eleTable = Table_Range("elements")
+  
+  'Find existing element to discretize
+  Dim iRow As Long
+  iRow = Get_Table_Row("elements", eleName)
+  Dim iNode As String, jNode As String, eleType As String, eleProperty As String, eleTransform As String, eleGroup As String
+  eleType = eleTable.Cells(iRow, 3).Value
+  iNode = eleTable.Cells(iRow, 4).Value
+  jNode = eleTable.Cells(iRow, 5).Value
+  eleProperty = eleTable.Cells(iRow, 6).Value
+  eleTransform = eleTable.Cells(iRow, 7).Value
+  eleGroup = eleTable.Cells(iRow, 8).Value
+  If eleGroup <> "" Then 'Remove final semicolon
+    eleGroup = Left(eleGroup, Len(eleGroup) - 1)
+  End If
+  
+  'Get endpoint coordinates
+  Dim ix As Double, iy As Double, iz As Double, jx As Double, jy As Double, jz As Double
+
+  ix = Get_Table_Property("nodes", iNode, "X")
+  iy = Get_Table_Property("nodes", iNode, "Y")
+  iz = Get_Table_Property("nodes", iNode, "Z")
+  jx = Get_Table_Property("nodes", jNode, "X")
+  jy = Get_Table_Property("nodes", jNode, "Y")
+  jz = Get_Table_Property("nodes", jNode, "Z")
+  
+  'Calculate cut coordinates
+  Dim L As Double, x As Double, y As Double, z As Double
+  L = Sqr((ix - jx) ^ 2 + (iy - jy) ^ 2 + (iz - jz) ^ 2)
+  x = ix + (jx - ix) * distance / L
+  y = iy + (jy - iy) * distance / L
+  z = iz + (jz - iz) * distance / L
+  
+  'Check if distance is within range of element
+  If distance < 0 Or distance > L Then
+    MsgBox "Cut location longer than element."
+    Exit Sub
+  End If
   
   'Add node along element at x
-  'Change eleName jNode
+  Call Add_Node(newName, CStr(x), CStr(y), CStr(z), append)
+  
+  'Change jNode of first element
+  eleTable.Cells(iRow, 5).Value = newName
+  
   'Add new element
-  'Call Add_Element(newName, eleType, iNode, jNode, property, transformation)
+  eleTable.Range("A" & iRow).EntireRow.Offset(1).Insert
+  Call Add_Element(newName, eleType, newName, jNode, eleProperty, eleTransform, eleGroup)
   'Call Add_Group_Tag
 End Sub
 
@@ -382,3 +329,29 @@ End Function
 Sub Remove_Group_Tag(sh As String, UID As String, tag As String)
   
 End Sub
+
+
+Sub Add_UFP(iNode As String, jNode As String, height As Double):
+  Call Add_Element(newName, eleType, iNode, jNode, eleProperty, eleTransform, eleGroup)
+  Call Add_Element(newName, eleType, iNode, jNode, "rigidLink", "", "UFP_link")
+  Call Add_Element(newName, eleType, iNode, jNode, "rigidLink", "", "UFP_link")
+End Sub
+
+Function Find_Vertical_Element(colName As String, height As Double) As String:
+  Dim elements As Range
+  Set elements = Table_Range("elements")
+  Dim row As Range
+  For Each row In elements.Rows
+    If InStr(row.Cells(1).Value, colName) <> 0 Then
+      Dim iNode As String, jNode As String, z1 As Double, z2 As Double
+      iNode = row.Cells(4).Value
+      jNode = row.Cells(5).Value
+      z1 = Get_Table_Property("nodes", iNode, "Z")
+      z2 = Get_Table_Property("nodes", jNode, "Z")
+      If (z1 < height And height < z2) Or (z1 > height And height > z2) Then
+        Find_Vertical_Element = row.Cells(1).Value
+      End If
+    End If
+  Next row
+  'Returns "" if no value is found
+End Function
