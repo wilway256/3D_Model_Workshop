@@ -25,7 +25,7 @@ print('Starting Import')
 model_filename = 'Model_Builder.xlsm'
 db = initialize_database(model_filename)
 save_input_file(model_filename, out_folder)
-ops.logFile(out_dir + 'log.txt', '-noEcho') # Must restart kernel if this is active.
+# ops.logFile(out_dir + 'log.txt', '-noEcho') # Must restart kernel if this is active.
 
 # %% Define Structure
 print('Defining Structure')
@@ -58,14 +58,17 @@ m.make_elements(db)
 # # ops.load(db.get_node_tag('F3 Center'), *[1000.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 
 # %% Eigenvalue Analysis
-eig = ops.eigen(5)
-Tn = [2*pi/sqrt(w2) for w2 in eig]
-print(Tn)
+m.modal_damping(0.05, (1, 9))
+# eig = ops.eigen(5)
+# Tn = [2*pi/sqrt(w2) for w2 in eig]
+# print(Tn)
 
-# %% Damping
-damp_ratio = 0.05
+# # %% Damping
+# damp_ratio = 0.05
 
-ops.rayleigh(0, 0, 0, 2*damp_ratio*Tn[0])
+# ops.rayleigh(0, 0, 0, 2*damp_ratio*Tn[0])
+
+
 
 # %% Loop through Each Load Case
 print("Analysis Loop")
@@ -113,5 +116,6 @@ for case in loadCases.index:
     
 print('\nOut of Loop')
 
+# M, C, K = analysis.MCK()
 # ops.wipe()
 
