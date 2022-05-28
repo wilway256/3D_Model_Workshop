@@ -1,12 +1,12 @@
 Attribute VB_Name = "Model_Commands"
 Option Explicit
 
-Function Worksheet_Exists(sheetName As String) As Boolean
+Function Worksheet_Exists(sheetname As String) As Boolean
 Worksheet_Exists = False
 Dim i As Integer
   With ThisWorkbook
     For i = 1 To .Sheets.Count
-        If .Sheets(i).name = sheetName Then
+        If .Sheets(i).name = sheetname Then
             Worksheet_Exists = True
             Exit Function
         End If
@@ -14,39 +14,39 @@ Dim i As Integer
   End With
 End Function
 
-Sub Make_New_Sheet(sheetName As String, ParamArray colNames() As Variant)
+Sub Make_New_Sheet(sheetname As String, ParamArray colNames() As Variant)
   Application.DisplayAlerts = False
   'If sheet does not already exist
-  If Worksheet_Exists(sheetName) Then
-    Sheets(sheetName).Delete
+  If Worksheet_Exists(sheetname) Then
+    Sheets(sheetname).Delete
     'To disable warning message, Application.DisplayAlerts = False
   End If
   'Make new sheet
-  Worksheets.Add(After:=Sheets(Sheets.Count)).name = sheetName
+  Worksheets.Add(After:=Sheets(Sheets.Count)).name = sheetname
   Application.DisplayAlerts = True
   'Columns
   Dim i As Integer
   For i = 0 To UBound(colNames())
-    Worksheets(sheetName).Cells(1, i + 1).Value = colNames(i)
+    Worksheets(sheetname).Cells(1, i + 1).Value = colNames(i)
   Next i
   i = i + 1
-  With Sheets(sheetName)
+  With Sheets(sheetname)
   .Columns(i).Resize(.Rows.Count, .Columns.Count - i + 1).Select
   Selection.EntireColumn.Hidden = True
   End With
 End Sub
 
-Function Next_Row(sheetName As String) As Long
+Function Next_Row(sheetname As String) As Long
 'Will retrieve row number of next empty row at end of table. Will ignore empty rows in a table.
   Dim sh As Worksheet
-  Set sh = Sheets(sheetName)
+  Set sh = Sheets(sheetname)
   Next_Row = sh.Range("A" & Rows.Count).End(xlUp).Offset(1).row
 End Function
 
-Function Next_Empty_Row(sheetName As String) As Long
+Function Next_Empty_Row(sheetname As String) As Long
 'Will retrieve row number of next empty row. Will find empty rows in a table.
   Dim sh As Worksheet
-  Set sh = Sheets(sheetName)
+  Set sh = Sheets(sheetname)
   Next_Empty_Row = sh.Range("A1").End(xlDown).row
   
   'If there is no rows other than the header
@@ -279,7 +279,8 @@ Sub Cut_Element(eleName As String, distance As Double, append As String)
   
   'Check if distance is within range of element
   If distance < 0 Or distance > L Then
-    MsgBox "Cut location longer than element."
+    MsgBox "Cut location longer than element. " & Chr(13) & Chr(10) & _
+    eleName & " " & CStr(distance) & " " & CStr(L)
     Exit Sub
   End If
   
@@ -295,16 +296,7 @@ Sub Cut_Element(eleName As String, distance As Double, append As String)
   'Call Add_Group_Tag
 End Sub
 
-Function Get_Table_Property(sh As String, UID As String, colStr As String) As String
-'Written 04-Apr-2022
-'Works similar to VLOOKUP for a sheet with one data table
-  Dim rng As Range
-  Set rng = Table_Range(sh)
-  Dim iRow As Long, iCol As Long
-  iRow = WorksheetFunction.Match(UID, rng.Columns(1), 0)
-  iCol = WorksheetFunction.Match(colStr, rng.Rows(1).Offset(-1), 0)
-  Get_Table_Property = rng.Cells(iRow, iCol)
-End Function
+
 
 Function Get_Table_Row(sh As String, UID As String) As Long
 'Written 04-Apr-2022
@@ -331,10 +323,32 @@ Sub Remove_Group_Tag(sh As String, UID As String, tag As String)
 End Sub
 
 
-Sub Add_UFP(iNode As String, jNode As String, height As Double):
-  Call Add_Element(newName, eleType, iNode, jNode, eleProperty, eleTransform, eleGroup)
-  Call Add_Element(newName, eleType, iNode, jNode, "rigidLink", "", "UFP_link")
-  Call Add_Element(newName, eleType, iNode, jNode, "rigidLink", "", "UFP_link")
+Sub Add_UFP(name As String, iNode As String, jNode As String, property As String, Optional dist_from_i As Double = -1):
+  Dim L As Double
+  L = Dist_btwn_Nodes(iNode, jNode)
+  If dist_from_i = -1 Then
+    dist_from_i = L / 2
+  End If
+    
+  'Get x, y, and z
+  Dim n1 As Variant, n2 As Variant
+  n1 = Get_Node_Coords(iNode)
+  n2 = Get_Node_Coords(jNode)
+  
+  'Calculate cut coordinates
+  Dim x As Double, y As Double, z As Double
+  x = n1(0) + (n2(0) - n1(0)) * dist_from_i / L
+  y = n1(1) + (n2(1) - n1(1)) * dist_from_i / L
+  z = n1(2) + (n2(2) - n1(2)) * dist_from_i / L
+  
+  Call Add_Node(name & "_1", CStr(x), CStr(y), CStr(z), "UFP")
+  Call Add_Node(name & "_2", CStr(x), CStr(y), CStr(z), "UFP")
+  
+  'Create elements
+  Call Add_Element(name, "UFP", name & "_1", name & "_2", property, "", "UFP")
+  Call Add_Element(name & "_link1", "rigidLink", iNode, name & "_1", "", "", "UFP_link")
+  Call Add_Element(name & "_link2", "rigidLink", iNode, name & "_2", "", "", "UFP_link")
+  
 End Sub
 
 Function Find_Vertical_Element(colName As String, height As Double) As String:
@@ -355,3 +369,4 @@ Function Find_Vertical_Element(colName As String, height As Double) As String:
   Next row
   'Returns "" if no value is found
 End Function
+

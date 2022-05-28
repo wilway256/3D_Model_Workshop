@@ -16,6 +16,12 @@ Sub Floors_and_Columns()
   Call Make_New_Sheet("nodeMass", "NodeUID", "X", "Y", "Z", "MX", "MY", "MZ")
   Call Make_New_Sheet("elements", "Element", "Tag", "Type", "iNode", "jNode", "PropertyID", "Transformation", "Group")
   
+  Sheets("nodes").Tab.ColorIndex = 3
+  Sheets("nodeFix").Tab.ColorIndex = 3
+  Sheets("diaphragms").Tab.ColorIndex = 3
+  Sheets("nodeMass").Tab.ColorIndex = 3
+  Sheets("elements").Tab.ColorIndex = 3
+  
   'Loop through all floors
   Dim rng As Range
   Dim N As Long
@@ -44,6 +50,7 @@ Sub Floors_and_Columns()
     End If
     
     'Second: Add every node on floor to the list of nodes.
+    
     Dim row As Range
     For Each row In Range("Floor_Plan_Node_Table").Rows
       'Create node. Pass over nodes that do not exist on ground floor.
@@ -71,6 +78,7 @@ Sub Floors_and_Columns()
     Next row
     
     'Third: Add every floor element to the list of elements
+    
     If iFloor <> 1 Then
       For Each row In Range("Floor_Plan_Elements_Horiz").Rows
         Call Add_Element(floorName & row.Cells(1), _
@@ -102,7 +110,7 @@ Sub Floors_and_Columns()
       node = row.Cells(3).Value
       xGrid = WorksheetFunction.VLookup(node, Range("Floor_Plan_Node_Table"), 2, False)
       yGrid = WorksheetFunction.VLookup(node, Range("Floor_Plan_Node_Table"), 3, False)
-      Debug.Print node, xGrid, yGrid
+      'Debug.Print node, xGrid, yGrid
       Call Add_Node(floorName & row.Cells(3), _
                     "=VLOOKUP(""" & xGrid & """,Grid,2,FALSE)", _
                     "=VLOOKUP(""" & yGrid & """,Grid,2,FALSE)", _
@@ -120,12 +128,14 @@ End Sub
 
 Sub UFPs()
   Dim row As Range
-  Dim wall As String, iCol As String, jCol As String, h As Double
+  Dim name As String, wall As String, iCol As String, jCol As String, h As Double, property As String
   For Each row In Range("UFP_Table").Rows
-    wall = row.Cells(1)
-    iCol = row.Cells(2)
-    jCol = row.Cells(3)
-    h = row.Cells(4)
+    name = row.Cells(1)
+    wall = row.Cells(2)
+    iCol = row.Cells(3)
+    jCol = row.Cells(4)
+    h = row.Cells(5)
+    property = row.Cells(6)
     
     'Names of elements to cut
     Dim wallNode As String, iNode As String, jNode As String
@@ -135,17 +145,27 @@ Sub UFPs()
     
     'Cut each at specified height
     Dim L As Double, nodeZ As Double
-    nodeZ = Get_Table_Property("nodes", wall, "Z")
+    Debug.Print wall, iCol, jCol
+    nodeZ = Get_Table_Property("nodes", Get_Table_Property("elements", wall, "iNode"), "Z")
     L = h - nodeZ
+    Call Cut_Element(wall, L, "UFP")
+    Call Cut_Element(iCol, L, "UFP")
+    Call Cut_Element(jCol, L, "UFP")
     
-    Call Cut_Element(wallNode, L, "UFP")
-    Call Cut_Element(iNode, L, "UFP")
-    Call Cut_Element(jNode, L, "UFP")
-    
+    'New node names
+    wall = wall & "_UFP"
+    iCol = iCol & "_UFP"
+    jCol = jCol & "_UFP"
     
     'Add UFP between wall and iCol
+    L = Dist_btwn_Nodes(wall, iCol)
+    L = L - 10.3125 'All UFPs are same distance from column centerline
+    Call Add_UFP(name & "_L", wall, iCol, property, 0)
     
     'Add UFP between wall and jCol
+    L = Dist_btwn_Nodes(wall, jCol)
+    L = L - 10.3125 'All UFPs are same distance from column centerline
+    Call Add_UFP(name & "_R", wall, jCol, property, 0)
     
   Next row
   
