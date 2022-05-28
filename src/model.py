@@ -5,6 +5,8 @@ Created on Mon Nov 15 11:16:06 2021
 @author: wroser
 """
 
+import numpy as np
+from numpy.linalg import solve
 import openseespy.opensees as ops
 from math import pi
 # import src.transformations as tr
@@ -94,10 +96,6 @@ def make_elements(db):
             ops.rigidLink('beam', iNode, jNode)
         
         elif eleType == 'UFP':
-            # eleTag = db.get_ele_tag(ele)
-            # iNode = int( dfEle.at[ele, 'iNode'] )
-            # jNode = int( dfEle.at[ele, 'jNode'] )
-            # eleType = dfEle.at[ele, 'PropertyID']
             material = eleInfo
             
             if material in mat_dict.keys():
@@ -108,17 +106,17 @@ def make_elements(db):
             ops.element('zeroLength', eleTag, iNode, jNode,
                         '-mat', tag, '-dir', 3) # 3 = z-direction
         
-        elif eleType == 'PT':
-            material = eleInfo
+        # elif eleType == 'PT':
+        #     material = eleInfo
             
-            # Skip if material already generated. Initialize material otherwise.
-            if material in mat_dict.keys():
-                tag = mat_dict[material]
-            else:
-                tag = make_material(eleInfo, dfProp)
+        #     # Skip if material already generated. Initialize material otherwise.
+        #     if material in mat_dict.keys():
+        #         tag = mat_dict[material]
+        #     else:
+        #         tag = make_material(eleInfo, dfProp)
             
-            A = dfProp.at[eleInfo, 'A']
-            ops.element('corotTruss', eleTag, iNode, jNode, A, tag)
+        #     A = dfProp.at[eleInfo, 'A']
+        #     ops.element('corotTruss', eleTag, iNode, jNode, A, tag)
         
         elif eleType == 'placeholder':
             pass
@@ -162,7 +160,7 @@ def make_diaphragm_constraints(db):
 def make_material(material, dfProp):
     global mat_dict
     try:
-        next_tag = max(mat_dict.values())
+        next_tag = max(mat_dict.values()) + 1
     except:
         next_tag = 1
     
@@ -196,7 +194,7 @@ def make_material(material, dfProp):
         
         mat_dict[material] = next_tag
         
-        Fy = fy*b*t**2/2/D
+        Fy = fy*b*t**2/3/D
         k0 = 16/27/pi*E*b*(t/D)**3
         
         ops.uniaxialMaterial('Steel02', next_tag, Fy, k0, alpha)
@@ -207,3 +205,39 @@ def make_material(material, dfProp):
         raise ValueError('''Material constructor not in code.\n
                          Valid matierials must start with PT or UFP.''')
         return 'ERROR'
+
+def modal_damping(zeta, modes, highmode=False, printme=True):
+    if highmode:
+        w2 = ops.eigen(highmode)
+    else:
+        w2 = ops.eigen(modes[1])
+    
+    w = np.sqrt(w2)
+    f = w/2/np.pi
+    T = 1/f
+    if type(zeta) is float:
+        zeta = (zeta, zeta)
+    elif type(zeta) is tuple:
+        pass
+    else:
+        raise TypeError('Zeta must be float or tuple.')
+    
+    # Calculate rayleigh damping factors
+    A = np.asarray([[1/w[modes[0]-1], w[modes[0]-1]], [1/w[modes[1]-1], w[modes[1]-1]]])
+    B = 2 * np.asarray([zeta[0], zeta[1]])
+    a = solve(A, B)
+    
+    # Apply damping to model
+    ops.rayleigh(a[0], 0, 0, a[1])
+    
+    # Print to console
+    print('\n')
+    print('{:^60}'.format('Modal Information'))
+    print('{:-^60}'.format(''))
+    print('{:>5}{:>13}{:>12}{:>10}{:>10}{:>10}'.format('Mode', 'w2', 'w', 'f', 'T', 'Damp.'))
+    print('{:>5}{:>13}{:>12}{:>10}{:>10}{:>10}'.format('', '[rad²/sec²]', '[rad/sec]', '[Hz]', '[sec]', 'Ratio'))
+    print('{:-^60}'.format(''))
+    for i in range(len(w2)):
+        h = a[0]/2/w[i] + a[1]*w[i]/2
+        print('{:5d}{:13.4g}{:12.2f}{:10.2f}{:10.2g}{:10.2%}'.format(i+1, w2[i], w[i], f[i], T[i], h))
+    print('\n')
