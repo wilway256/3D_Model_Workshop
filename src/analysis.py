@@ -5,6 +5,7 @@ Created on Tue Mar 22 16:25:13 2022
 @author: wroser
 """
 
+import numpy as np
 import tkinter as tk
 from tkinter import ttk
 import os
@@ -258,3 +259,41 @@ class Convergence_Plot():
         else:
             self.see_convergence(N, dt, start_lim*10)
         pass
+
+def MCK():
+    ops.wipeAnalysis()
+        # Analysis
+    ops.system("FullGeneral")
+    ops.numberer("Plain")
+    ops.constraints("Transformation")
+    # ops.test('EnergyIncr', 1e-6, 100)
+    ops.algorithm("Linear")
+    # ops.analysis("Static")
+    
+    ops.analysis('Transient')
+     
+    # Mass
+    ops.integrator('GimmeMCK',1.0,0.0,0.0)
+    ops.analyze(1,0.0)
+     
+    # Number of equations in the model
+    N = ops.systemSize() # Has to be done after analyze
+     
+    M = ops.printA('-ret') # Or use ops.printA('-file','M.out')
+    M = np.array(M) # Convert the list to an array
+    M.shape = (N,N) # Make the array an NxN matrix
+     
+    # Stiffness
+    ops.integrator('GimmeMCK',0.0,0.0,1.0)
+    ops.analyze(1,0.0)
+    K = ops.printA('-ret')
+    K = np.array(K)
+    K.shape = (N,N)
+     
+    # Damping
+    ops.integrator('GimmeMCK',0.0,1.0,0.0)
+    ops.analyze(1,0.0)
+    C = ops.printA('-ret')
+    C = np.array(C)
+    C.shape = (N,N)
+    return M, C, K
