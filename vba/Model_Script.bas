@@ -145,7 +145,7 @@ Sub UFPs()
     
     'Cut each at specified height
     Dim L As Double, nodeZ As Double
-    Debug.Print wall, iCol, jCol
+    
     nodeZ = Get_Table_Property("nodes", Get_Table_Property("elements", wall, "iNode"), "Z")
     L = h - nodeZ
     Call Cut_Element(wall, L, "UFP")
@@ -160,12 +160,12 @@ Sub UFPs()
     'Add UFP between wall and iCol
     L = Dist_btwn_Nodes(wall, iCol)
     L = L - 10.3125 'All UFPs are same distance from column centerline
-    Call Add_UFP(name & "_L", wall, iCol, property, 0)
+    Call Add_UFP(name & "_L", wall, iCol, property, L)
     
     'Add UFP between wall and jCol
     L = Dist_btwn_Nodes(wall, jCol)
     L = L - 10.3125 'All UFPs are same distance from column centerline
-    Call Add_UFP(name & "_R", wall, jCol, property, 0)
+    Call Add_UFP(name & "_R", wall, jCol, property, L)
     
   Next row
   
@@ -180,10 +180,18 @@ Sub UFPs()
 End Sub
 
 Sub Formatting()
+
+  Sheets("nodes").Columns(1).AutoFit
   Sheets("nodes").Columns(6).AutoFit
+  
+  Sheets("nodeFix").Columns(1).AutoFit
+  Sheets("nodeMass").Columns(1).AutoFit
+  
   Sheets("diaphragms").Range("A:B").ColumnWidth = 20
+  
   Sheets("elements").Columns("A").AutoFit
   Sheets("elements").Columns("C").ColumnWidth = 18.5
   Sheets("elements").Columns("F:G").ColumnWidth = 13.8
   Sheets("elements").Columns("H").AutoFit
+  
 End Sub

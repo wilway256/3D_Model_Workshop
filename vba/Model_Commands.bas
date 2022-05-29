@@ -347,7 +347,7 @@ Sub Add_UFP(name As String, iNode As String, jNode As String, property As String
   'Create elements
   Call Add_Element(name, "UFP", name & "_1", name & "_2", property, "", "UFP")
   Call Add_Element(name & "_link1", "rigidLink", iNode, name & "_1", "", "", "UFP_link")
-  Call Add_Element(name & "_link2", "rigidLink", iNode, name & "_2", "", "", "UFP_link")
+  Call Add_Element(name & "_link2", "rigidLink", jNode, name & "_2", "", "", "UFP_link")
   
 End Sub
 
