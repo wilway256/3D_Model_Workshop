@@ -9,7 +9,9 @@ Created on Mon Nov 15 11:24:08 2021
 @author: wroser
 """
 
-# import openseespy.opensees as ops
+import numpy as np
+import openseespy.opensees as ops
+import matplotlib.pyplot as plt
 # import opsvis
 # import src.postprocessing_active as pp1
 # import src.postprocessing_saved as pp2
@@ -33,16 +35,29 @@ Created on Mon Nov 15 11:24:08 2021
 
 # opsvis.plot_mode_shape(1, interpFlag=0)
 
+# %% Visualization
+
+def plot_nodes(factor=100.0):
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+    
+    coords = np.zeros([len(ops.getNodeTags()), 3])
+    for i, tag in enumerate(ops.getNodeTags()):
+        coords[i,:] = coords[i,:] + np.asarray(ops.nodeCoord(tag))
+        coords[i,:] = coords[i,:] + np.asarray(ops.nodeDisp(tag)[0:3]) * factor
+    
+    ax.scatter(coords[:,0], coords[:,1], coords[:,2], marker='+')
+    return fig, ax
+
 # %% XML Parser
 import os
 import xml.etree.ElementTree as ET
-import numpy as np
+
 import pandas as pd
 from src.excel_to_database import initialize_database
 from tkinter.filedialog import askopenfilename
 
-
-def xml_to_df(filepath):
+def xml_to_df(filepath, remove_blanks=False):
     # outdir = 'out/triangle/'
     # file = 'node_t.xml'
     # filepath = outdir + file
@@ -71,12 +86,20 @@ def xml_to_df(filepath):
             column_names.append(element[0].text)
 
         elif element.tag == 'NodeOutput':
-            nodeTag = element.attrib['nodeTag']
-            nodeName = db.get_node_name(int(nodeTag))
+            tag = element.attrib['nodeTag']
+            nodeName = db.get_node_name(int(tag))
             hierarchy[nodeName] = []
             for response in range(len(element)):
                 column_names.append(nodeName + ' ' + element[response].text)
                 hierarchy[nodeName].append(element[response].text)
+                
+        elif element.tag == 'ElementOutput':
+            tag = element.attrib['eleTag']
+            eleName = db.tag_to_name('ele', int(tag))
+            hierarchy[eleName] = []
+            for response in range(len(element)):
+                column_names.append(eleName + ' ' + element[response].text)
+                hierarchy[eleName].append(element[response].text)
     
     
     data = root.find('Data').text
@@ -89,12 +112,17 @@ def xml_to_df(filepath):
     
     df = pd.DataFrame(data, columns=column_names)
     
+    if remove_blanks:
+        for column in list(df):
+            if (df[column] == 0).all():
+                df.drop(columns=column, inplace=True)
+    
     return df, hierarchy
 
 # df.plot(0,8)
 
 if __name__ == '__main__':
-    outdir = 'out/temp/gm1/'
-    file = 'center_disp.xml'
+    outdir = 'out/temp/lateralX/'
+    file = 'UFP_force.xml'
     filepath = outdir + file
-    df, _ = xml_to_df(filepath)
+    df, h = xml_to_df(filepath, remove_blanks=True)
