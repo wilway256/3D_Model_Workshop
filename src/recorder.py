@@ -18,8 +18,11 @@ def apply_recorders(db, case, outdir=''):
         if df.at[i, 'Case'] == case or df.at[i, 'Case'] == '':
             respType = df.at[i, 'RespType']
             fileName = outdir + df.at[i, 'FileName'] + '.xml'
+            
+            # -------  NODES   -------
             if df.at[i, 'Type'] == 'node':
-                nodeTags = db.get_node_subset(df.at[i, 'Group'], tag=True)
+                tags = db.parse('node', df.at[i, 'Arguments'])
+                tags = db.get_tag('node', tags)
                 try:
                     dofs = df.at[i, 'Node DOF'].split(',')
                     for j in range(len(dofs)):
@@ -29,15 +32,20 @@ def apply_recorders(db, case, outdir=''):
                 arg1 = 'Node' if df.at[i, 'Envelope'] != 'Y' else 'EnvelopeNode'
                 
                 # print('rec', fileName, nodeTags, dofs)
-                recorder(arg1, '-xml', fileName, '-time', '-node', *nodeTags, '-dof', *dofs, respType)
+                recorder(arg1, '-xml', fileName, '-time', '-node', *tags, '-dof', *dofs, respType)
+                
+            # ------- ELEMENTS -------
             elif df.at[i, 'Type'].startswith('ele'):
-                if df.at[i, 'Envelope'] == 'Y':
-                    pass
-                else:
-                    pass
+                tags = db.parse('ele', df.at[i, 'Arguments'])
+                tags = db.get_tag('ele', tags)
+                
+                arg1 = 'Element' if df.at[i, 'Envelope'] != 'Y' else 'EnvelopeElement'
+                
+                # print('rec', fileName, nodeTags, dofs)
+                recorder(arg1, '-xml', fileName, '-time', '-ele', *tags, respType)
+                
             else:
                 print('Error: Recorder defined in Excel but not recorder.py.')
         else:
             # Do nothing. This load case does not include these recorders.
             pass
-

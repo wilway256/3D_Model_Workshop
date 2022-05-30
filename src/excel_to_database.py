@@ -33,12 +33,13 @@ def initialize_database(filename):
     
     # %%% Elements
     dfEleList = pandas.read_excel(filename, sheet_name='elements', 
-                                  dtype={'Element':str,
+                                  dtype={'UID':str,
                                          'PropertyID':str,
                                          'Tag':int,
                                          'iNode':str,
                                          'jNode':str,
                                          'Group':str})
+    dfEleList.fillna(value={'Group':''}, inplace=True)
     
     dfEleType = pandas.read_excel(filename, sheet_name='eleProperties')
     dfEleType = dfEleType.astype(float, copy=False, errors='ignore')
@@ -102,9 +103,34 @@ class Database:
         name = df.loc[ df['Tag'] == nodeTag ].index[0]
         return name
     
+    def tag_to_name(self, node_or_ele, tag):
+        df = self.node_or_ele(node_or_ele)
+        
+        if type(tag) == int:
+            tag = df.loc[ df['Tag'] == tag ].index[0]
+            
+        elif type(tag) == list:
+            for i in range(len(tag)):
+                tag[i] = df.loc[ df['Tag'] == tag[i] ].index[0]
+        
+        return tag
+    
     def get_ele_tag(self, eleUID):
         tag = int(self.ele.at[eleUID, 'Tag'])
         return tag
+    
+    def get_tag(self, node_or_ele, UID):
+        
+        df = self.node_or_ele(node_or_ele)
+        
+        if type(UID) == str:
+            UID = int(df.at[UID, 'Tag'])
+            
+        elif type(UID) == list:
+            for i in range(len(UID)):
+                UID[i] = int(df.at[UID[i], 'Tag'])
+        
+        return UID
     
     def get_node_subset(self, name, tag=False):
         node_list = []
@@ -126,8 +152,106 @@ class Database:
                     node_list.append(self.node.iloc[i].name)
         return node_list
 
+    def get_subset(self, node_or_ele, name, tag=False):
+        UID_list = []
+        
+        # Are we parsing nodes or elements?
+        if node_or_ele == 'node':
+            df = self.node
+        elif node_or_ele == 'ele':
+            df = self.ele
+        else:
+            raise ValueError("Acceptable arguments are 'node' or 'ele'.")
+        
+        for i in range(len(df.index)):
+            if (name + ';') in df.iloc[i]['Group']:
+                if tag:
+                    raise ValueError('Feature not added yet.')
+                    # node_list.append(self.get_tag(df.iloc[i].name))
+                else:
+                    UID_list.append(df.iloc[i].name)
+        return UID_list
+    
+    def parse(self, node_or_ele, string):
+        '''
+        Returns list of node or element names.
+
+        Parameters
+        ----------
+        node_or_ele : string
+            Must be 'node' or 'ele'.
+        string : string
+            Values in command:argument format, separated by semicolons followed
+            by spaces. All commands except NAME can be combined to return a list
+            of only the elements/nodes that satisfy all criteria,
+            Commands:
+                NAME: Gets specific node or element.
+                CONT: Node or element name contains argument.
+                BEGIN: Name starts with argument.
+                HASNT: Name does not contain argument string.
+                GRP: List of nodes/elements with given group tag.
+                NOT: List of nodes/elements without group tag.
+        '''
+        
+        # Are we parsing nodes or elements?
+        if node_or_ele == 'node':
+            df = self.node
+        elif node_or_ele == 'ele':
+            df = self.ele
+        else:
+            raise ValueError("Acceptable arguments are 'node' or 'ele'.")
+        
+        args = string.split('; ')
+        UID_list = []
+        for arg in args:
+            # Note: Using Python 3.8. match/case not available.
+            cmd, value = arg.split(':')
+            if cmd == 'NAME':
+                subset = [value]
+            elif cmd == 'GRP':
+                subset = self.get_subset(node_or_ele, value)
+            elif cmd == 'CONT':
+                subset = []
+                for name in df.index:
+                    if value in name:
+                        subset.append(name)
+            elif cmd == 'HASNT':
+                subset = []
+                for name in df.index:
+                    if value not in name:
+                        subset.append(name)
+            elif cmd == 'NOT':
+                subset = list(set(self.get_subset('node', ''))\
+                              .difference(self.get_subset('node', 'F2')))
+            elif cmd == 'BEGIN':
+                subset = []
+                for name in df.index:
+                    if name.startswith(value):
+                        subset.append(name)
+            else:
+                raise ValueError('Invalid argument: ' + cmd)
+            
+            if UID_list != []:
+                UID_list = list(set(UID_list).intersection(subset))
+            else:
+                UID_list = subset
+        return UID_list
+    
+    def node_or_ele(self, node_or_ele):
+        # Are we parsing nodes or elements?
+        if node_or_ele == 'node':
+            df = self.node
+        elif node_or_ele == 'ele':
+            df = self.ele
+        else:
+            raise ValueError("Acceptable arguments are 'node' or 'ele'.")
+        
+        return df
+
 
 if __name__ == '__main__':
     import os
     os.chdir(r'../')
     db = initialize_database(r'Model_Builder.xlsm')
+    
+    db.parse('ele', 'GRP:')
