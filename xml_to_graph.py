@@ -69,7 +69,7 @@ class App(tk.Tk):
     
     def pick_file(self):
         filepath = tk.filedialog.askopenfilename(initialdir='./out', filetypes=[('XML Recorder', '*.xml')])
-        self.df, self.hierarchy = xml_to_df(filepath)
+        self.df, self.hierarchy, _ = xml_to_df(filepath)
         print(filepath)
         # tree = ET.parse(filepath)
         # root = tree.getroot()
