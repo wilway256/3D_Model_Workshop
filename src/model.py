@@ -5,17 +5,21 @@ Created on Mon Nov 15 11:16:06 2021
 @author: wroser
 """
 
+# %% Imports
 import numpy as np
 from numpy.linalg import solve
 import openseespy.opensees as ops
 from math import pi
-# import src.transformations as tr
 
-global_z = 3
 
+# %% Module Level Variables
 mat_dict = {}
 
+# %% Definitions
 def make_model(modelType='3D'):
+    '''
+    Wrapper for OpenSees model builder command.
+    '''
     ops.wipe()
     # print('No model type specified. Using 3D, 6 DOF model by default.')
     if modelType == '3D':
@@ -28,8 +32,11 @@ def make_model(modelType='3D'):
         ops.model('Basic', '-ndm', 2, '-ndf', 2)
     else:
         raise ValueError("Must use '1D', '2D', '3D', or 'Truss'")
-    
+
 def define_nodes(db):
+    '''
+    Loop through nodes in database and create them in OpenSees.
+    '''
     df = db.node
     node_names = db.get_node_list()
     for node in node_names:
@@ -38,8 +45,13 @@ def define_nodes(db):
         y = df.at[node, 'Y']
         z = df.at[node, 'Z']
         ops.node(tag, x, y, z)
+        # Debugging: Add nonzero mass to every DOF:
+        # ops.mass(tag, *[0.01, 0.01, 0.01, 0.01, 0.01, 0.01])
     
 def fix_nodes(db):
+    '''
+    Loop through list of node names. Fix DOFs based on True/False table.
+    '''
     df = db.fixity
     for node in df.index:
         tag = db.get_node_tag(node)
@@ -48,17 +60,22 @@ def fix_nodes(db):
         ops.fix(tag, *dof_fixity)
 
 def assign_node_mass(db):
+    '''
+    Loop through list of node names. Add mass at all nodal DOFs at once.
+    '''
     df = db.nodeMass
     for node in df.index:
         tag = db.get_node_tag(node)
         node_dof_mass = list(df.loc[node])
         ops.mass(tag, *node_dof_mass)
         
-def make_elements(db):
+def make_elements(db, rigidLinkConstraint=True):
+    print('Ele Loop')
     dfEle = db.ele
     dfProp = db.eleData
     dfTransf = db.transf
     global mat_dict
+    release = {'I':1, 'J':2, 'IJ':3}
     
     for ele in dfEle.index:
         # print(ele)
@@ -68,6 +85,7 @@ def make_elements(db):
         eleType = dfEle.at[ele, 'Type']
         eleInfo = dfEle.at[ele, 'PropertyID']
         # print(eleType) # for debugging
+        
         if eleType == 'elasticBeamCol':
             Area = dfProp.at[eleInfo, 'A']
             E_mod = dfProp.at[eleInfo, 'E']
@@ -76,8 +94,19 @@ def make_elements(db):
             Iy = dfProp.at[eleInfo, 'Iy']
             Iz = dfProp.at[eleInfo, 'Iz']
             transf = dfEle.at[ele, 'Transformation']
+            releasey = dfProp.at[eleInfo, 'releasey']
+            if releasey not in ['I', 'J', 'IJ']:
+                releasey = 0
+            else:
+                releasey = release[releasey]
+            releasez = dfProp.at[eleInfo, 'releasez']
+            if releasez not in ['I', 'J', 'IJ']:
+                releasez = 0
+            else:
+                releasez = release[releasez]
             transfTag = int( dfTransf.at[transf, 'Tag'] )
-            ops.element('elasticBeamColumn', eleTag, iNode, jNode, Area, E_mod, G_mod, Jxx, Iy, Iz, transfTag)
+            ops.element('elasticBeamColumn', eleTag, iNode, jNode, Area, E_mod, G_mod, Jxx, Iy, Iz, transfTag,
+                        '-releasey', releasey, '-releasez', releasez)
             
         elif eleType == 'Timoshenko':
             Area = dfProp.at[eleInfo, 'A']
@@ -93,7 +122,20 @@ def make_elements(db):
                         E_mod, G_mod, Area, Jxx, Iy, Iz, Av, Av, transfTag)
             
         elif eleType == 'rigidLink':
-            ops.rigidLink('beam', iNode, jNode)
+            if rigidLinkConstraint:
+                ops.rigidLink('beam', iNode, jNode)
+            else:
+                eleInfo = 'rigidLink'
+                Area = dfProp.at[eleInfo, 'A']
+                E_mod = dfProp.at[eleInfo, 'E']
+                G_mod = dfProp.at[eleInfo, 'G']
+                Jxx = dfProp.at[eleInfo, 'J']
+                Iy = dfProp.at[eleInfo, 'Iy']
+                Iz = dfProp.at[eleInfo, 'Iz']
+                transf = 'Std Beam'
+                transfTag = int( dfTransf.at[transf, 'Tag'] )
+                ops.element('elasticBeamColumn', eleTag, iNode, jNode, Area, E_mod, G_mod, Jxx, Iy, Iz, transfTag)
+            
         
         elif eleType == 'UFP':
             material = eleInfo
@@ -106,17 +148,18 @@ def make_elements(db):
             ops.element('zeroLength', eleTag, iNode, jNode,
                         '-mat', tag, '-dir', 3) # 3 = z-direction
         
-        # elif eleType == 'PT':
-        #     material = eleInfo
+        elif eleType == 'PT':
+            material = eleInfo
             
-        #     # Skip if material already generated. Initialize material otherwise.
-        #     if material in mat_dict.keys():
-        #         tag = mat_dict[material]
-        #     else:
-        #         tag = make_material(eleInfo, dfProp)
+            # Skip if material already generated. Initialize material otherwise.
+            if material in mat_dict.keys():
+                tag = mat_dict[material]
+            else:
+                tag = make_material(eleInfo, dfProp)
             
-        #     A = dfProp.at[eleInfo, 'A']
-        #     ops.element('corotTruss', eleTag, iNode, jNode, A, tag)
+            A = dfProp.at[eleInfo, 'A']
+            # print('Truss tag: ', tag)
+            ops.element('corotTruss', eleTag, iNode, jNode, A, tag)
         
         elif eleType == 'placeholder':
             pass
@@ -129,6 +172,10 @@ def make_elements(db):
             raise ValueError('Element type "' + eleType + '" not included.')
             
 def define_transformations(db):
+    '''
+    Loops through list of transformations and defines them in OpenSees.
+    Relationship between tag and name is managed by database object.
+    '''
     df = db.transf
     for i in df.index:
         trType = df.at[i, 'Type']
@@ -137,28 +184,18 @@ def define_transformations(db):
         ops.geomTransf(trType, tag, *xzVec)
 
 def make_diaphragm_constraints(db):
+    '''
+    Loops through list of node names. Adds nodes to diaphragm one at a time.
+    '''
     df = db.diaphragm
     for cNode in df.index:
         mNode = df.at[cNode, 'RetainedNode']
         mTag = db.get_node_tag(mNode)
         cTag = db.get_node_tag(cNode)
         ops.rigidDiaphragm(3, mTag, cTag)
-
-# def material_tag(material, dfProp):
-#     global mat_dict
-#     if material in mat_dict.keys():
-#         tag = mat_dict[material]
-#     elif mat_dict == {}:
-#         tag = 1
-#         tag = make_material
-#     else:
-#         tag = max(mat_dict.values())
-#         mat_dict[material] = tag
-#         tag = make_material(material, dfProp)
-#         return tag
     
 def make_material(material, dfProp):
-    global mat_dict
+    global mat_dict; print(mat_dict)
     try:
         next_tag = max(mat_dict.values()) + 1
     except:
@@ -202,11 +239,32 @@ def make_material(material, dfProp):
         return next_tag
     
     else:
-        raise ValueError('''Material constructor not in code.\n
-                         Valid matierials must start with PT or UFP.''')
+        raise ValueError('Material "' + material + '"constructor not in code.\n' +
+                         'Valid matierials must start with PT or UFP.')
         return 'ERROR'
+    
+    print(mat_dict)
 
-def modal_damping(zeta, modes, highmode=False, printme=True):
+def rayleigh_damping(zeta, modes, highmode=False, printme=True):
+    '''
+    Add rayleigh damping to OpenSees model.
+
+    Parameters
+    ----------
+    zeta : float or tuple of floats
+        Damping factor, decimal. Two factors if different.
+    modes : tuple of integers
+        Apply rayleigh damping factor at these two modes.
+    highmode : integer
+        Override for eigen(highmode). Use the higher of modes by default.
+    printme : TYPE, optional
+        Option to print table to console.
+
+    Returns
+    -------
+    None.
+
+    '''
     if highmode:
         w2 = ops.eigen(highmode)
     else:
