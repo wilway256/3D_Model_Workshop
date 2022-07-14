@@ -5,6 +5,7 @@ Created on Tue Mar 22 16:25:13 2022
 @author: wroser
 """
 
+# %% Imports
 import numpy as np
 import tkinter as tk
 from tkinter import ttk
@@ -13,51 +14,14 @@ import openseespy.opensees as ops
 from src.loads import apply_nodal_loads
 import gm.gm_reader as gm
 import matplotlib.pyplot as plt
+import opsvis
+from tools.spy import spy
 
-# Module-level variables
-timeSeriesTag = 2
-patternTag = 2
 
-def analysis_loop(db, out_directory):
-    df = db.loadCase.query('Run == "Y"')
-    # print(df)
-    for case in df.index:
-        # Make output subfolders
-        try:
-            os.mkdir(out_directory + '/' + case)
-        except FileExistsError:
-            pass
-        
-        # Recorders
-        
-        
-        # Gravity (or other constant load case)
-        print('Applying Gravity')
-        # gravity_load(db)
-        # apply_nodal_loads(db, 'gravity')
-        constant_analysis(db, 'gravity')
-        
-        # # Static
-        # if df['Type'][case] == 'Static':
-        #     print("static if")
-        #     tag = list(db.loadCase.index).index(case) + 1 # ensures no tag repeat
-        #     ops.timeSeries()
-        #     ops.pattern()
-        #     apply_nodal_loads(db, case)
-        #     apply_nodal_loads(db)
-        #     static_analysis(db)
-        
-        # # Pushover (displacement control)
-        # elif df['Type'][case] == 'Disp':\
-        #     print("disp ctrl if")
-        
-        # # Dynamic
-        # elif df['Type'][case] == 'GM':
-        #     print("dynamic if")
-        #     tag = list(db.loadCase.index).index(case) + 1 # ensures no tag repeat
-        #     pass
+# %% Code
 
 def constant_analysis(db, case):
+    print('Constant')
     # Loads
     tag = list(db.loadCase.index).index(case) + 1
     ops.timeSeries('Constant', tag)
@@ -66,14 +30,17 @@ def constant_analysis(db, case):
     
     # Analysis
     ops.system("BandSPD")
-    ops.numberer("Plain")
+    ops.numberer("RCM")
     ops.constraints("Transformation")
     ops.integrator("LoadControl", 1, 1)
     # Add later: pFlag = __ if option else 0
     ops.test('NormUnbalance', 1e-6, 200, 0)
-    ops.algorithm("KrylovNewton")
+    ops.algorithm("ModifiedNewton")
     ops.analysis("Static")
     ops.analyze(1)
+    
+    # opsvis.plot_defo(interpFlag=0)
+    
     ops.wipeAnalysis()
     ops.setTime(0.0)
     if case != 'gravity':
@@ -81,6 +48,7 @@ def constant_analysis(db, case):
         ops.remove('loadPattern', tag)
 
 def static_analysis(db, case):
+    print('Static')
     # Number of steps
     loadFactor = db.loadCase.loc[case]['Incr']
     N = int(db.loadCase.loc[case]['Nsteps'])
@@ -93,14 +61,17 @@ def static_analysis(db, case):
     
     # Analysis
     ops.system("BandSPD")
-    ops.numberer("Plain")
+    ops.numberer("RCM")
     ops.constraints("Transformation")
     # Add later: pFlag = __ if option else 0
-    ops.test('EnergyIncr', 1e-6, 100)
+    ops.test('EnergyIncr', 1e-6, 100, 0)
     ops.integrator("LoadControl", loadFactor)
-    ops.algorithm("KrylovNewton")
+    ops.algorithm("ModifiedNewton")
     ops.analysis("Static")
     ops.analyze(N)
+    
+    # opsvis.plot_defo(interpFlag=0)
+    
     ops.wipeAnalysis()
     # recursive_analyze_static()
     ops.remove('timeSeries', tag)
@@ -124,16 +95,18 @@ def displacement_analysis(db, case):
     
     # Analysis
     ops.system("BandSPD")
-    ops.numberer("Plain")
+    ops.numberer("RCM")
     ops.constraints("Transformation")
     # Add later: pFlag = __ if option else 0
     ops.test('EnergyIncr', 1e-6, 100)
     ops.integrator("DisplacementControl", nodeTag, dof, loadFactor)
-    ops.algorithm("KrylovNewton")
+    ops.algorithm("ModifiedNewton")
     ops.analysis("Static")
     ops.analyze(N)
     
-    ops.wipeAnalysis()
+    # opsvis.plot_defo(interpFlag=0)
+    
+    # ops.wipeAnalysis()
     ops.remove('timeSeries', tag)
     ops.remove('loadPattern', tag)
     
