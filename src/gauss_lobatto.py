@@ -215,5 +215,33 @@ def linear(N):
     return (xs, w)
 
 if __name__ == '__main__':
+    import openpyxl
     
-    pass
+    start = 2
+    end = 101
+    
+    wb = openpyxl.Workbook()
+    # print()
+    
+    wb.create_sheet('integration_nodes')
+    wb.create_sheet('integration_weights')
+    wb.remove_sheet(wb.get_sheet_by_name('Sheet'))
+    
+    sh1 = wb['integration_nodes']
+    sh2 = wb['integration_weights']
+    
+    for i, N in enumerate(range(start, end+1)):
+        nodes, weights = gauss_lobatto2(N)
+        
+        sh1.cell(1, i + 1).value = N
+        sh2.cell(1, i + 1).value = N
+        
+        for j, row in enumerate(range(2, len(nodes) + 2)):
+            sh1.cell(row, i + 1).value = nodes[j]
+            sh2.cell(row, i + 1).value = weights[j]
+            
+        print(N)
+        
+    wb.save('nodes_and_weights.xlsx')
+    
+    
