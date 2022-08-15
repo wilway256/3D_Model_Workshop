@@ -14,6 +14,7 @@ from math import pi
 
 # %% Module Level Variables
 mat_dict = {}
+integrations = {} # to be filled with {N: ((x,y), area)}
 
 # %% Definitions
 def make_model(modelType='3D'):
@@ -74,6 +75,7 @@ def make_elements(db, rigidLinkConstraint=True):
     dfEle = db.ele
     dfProp = db.eleData
     dfTransf = db.transf
+    dfMS = db.multispring
     global mat_dict
     release = {'I':1, 'J':2, 'IJ':3}
     
@@ -161,7 +163,28 @@ def make_elements(db, rigidLinkConstraint=True):
             # print('Truss tag: ', tag)
             ops.element('corotTruss', eleTag, iNode, jNode, A, tag)
         
-        elif eleType == 'placeholder':
+        elif eleType == 'multiSpring':
+            # Get properties
+            E = dfProp.at[eleInfo, 'E']
+            alpha = dfProp.at[eleInfo, 'alpha']
+            fy = dfProp.at[eleInfo, 'fy']
+            Leff = dfProp.at[eleInfo, 'Leff']
+            
+            A = dfMS.at[ele, 'Area']
+            K = dfMS.at[ele, 'K']
+            
+            Fy = fy * A
+            
+            material = ele # Each spring will have a unique material.
+            
+            # Create material.
+            if material in mat_dict.keys():
+                tag = mat_dict[material]
+            else:
+                tag = make_material(eleInfo, dfProp, K=K, Fy=Fy, alpha=alpha)
+            
+            # Create element.
+            ops.element('zeroLength', eleTag, iNode, jNode, '-mat', tag, '-dir', 3)
             pass
         
         elif eleType == 'placeholder':
@@ -170,6 +193,7 @@ def make_elements(db, rigidLinkConstraint=True):
         else:
             print(eleType)
             raise ValueError('Element type "' + eleType + '" not included.')
+    
             
 def define_transformations(db):
     '''
@@ -194,7 +218,7 @@ def make_diaphragm_constraints(db):
         cTag = db.get_node_tag(cNode)
         ops.rigidDiaphragm(3, mTag, cTag)
     
-def make_material(material, dfProp):
+def make_material(material, dfProp, **kwargs):
     global mat_dict; print(mat_dict)
     try:
         next_tag = max(mat_dict.values()) + 1
@@ -233,8 +257,21 @@ def make_material(material, dfProp):
         
         Fy = fy*b*t**2/3/D
         k0 = 16/27/pi*E*b*(t/D)**3
-        
+        print(Fy, type(Fy), k0, type(k0))
         ops.uniaxialMaterial('Steel02', next_tag, Fy, k0, alpha)
+        
+        return next_tag
+    
+    elif material[:2] == 'ms':
+        print('Pre:', mat_dict)
+        K = kwargs['K']
+        Fy = kwargs['Fy']
+        alpha = kwargs['alpha']
+        
+        mat_dict[material] = next_tag
+        
+        print(K, type(K), Fy, type(Fy), alpha, type(alpha))
+        ops.matTag = ops.uniaxialMaterial('ElasticPPGap', next_tag, K, Fy, 0.0, alpha, 'damage')
         
         return next_tag
     
@@ -243,7 +280,7 @@ def make_material(material, dfProp):
                          'Valid matierials must start with PT or UFP.')
         return 'ERROR'
     
-    print(mat_dict)
+    print(next_tag, mat_dict)
 
 def rayleigh_damping(zeta, modes, highmode=False, printme=True):
     '''

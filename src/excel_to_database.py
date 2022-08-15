@@ -6,7 +6,8 @@ Created on Mon Nov 15 11:24:08 2021
 """
 
 import pandas
-# import sqlite3
+
+
 # %% Dataframes
 def initialize_database(filename):
     # %%% Nodes
@@ -49,6 +50,14 @@ def initialize_database(filename):
                                          'Xvec':float,
                                          'Yvec':float,
                                          'Zvec':float})
+    # %%% Multispring
+    try:
+        dfMultiSpring = pandas.read_excel(filename, sheet_name='multispring',
+                                          dtype={'Area':float,
+                                                  'K':float})
+    # Blank if does not exist
+    except:
+        dfMultiSpring = pandas.DataFrame()
     
     # %%% Constraints
     dfDiaphragm = pandas.read_excel(filename, sheet_name='diaphragms')
@@ -64,17 +73,17 @@ def initialize_database(filename):
     
     
     # %% Set the first column of each worksheet as the index.
-    for df in [dfNode, dfFix, dfNodeMass, dfEleList, dfEleType, dfDiaphragm, dfTransf, dfLoadCase]:
+    for df in [dfNode, dfFix, dfNodeMass, dfEleList, dfEleType, dfDiaphragm, dfTransf, dfLoadCase, dfMultiSpring]:
         df.set_index(df.columns[0], inplace=True)
     
-    database = Database(dfNode, dfFix, dfNodeMass, dfNodeLoad, dfEleList, dfEleType, dfTransf, dfDiaphragm, dfLoadCase, dfRecorders)
+    database = Database(dfNode, dfFix, dfNodeMass, dfNodeLoad, dfEleList, dfEleType, dfTransf, dfDiaphragm, dfLoadCase, dfRecorders, dfMultiSpring)
     
     return database
 
 # %% Class definition
 class Database:
     
-    def __init__(self, dfNode, dfFix, dfNodeMass, dfNodeLoad, dfEleList, dfEleType, dfTransf, dfDiaphragm, dfLoadCase, dfRecorders):
+    def __init__(self, dfNode, dfFix, dfNodeMass, dfNodeLoad, dfEleList, dfEleType, dfTransf, dfDiaphragm, dfLoadCase, dfRecorders, dfMultiSpring):
         self.node = dfNode
         self.fixity = dfFix
         self.nodeMass = dfNodeMass
@@ -85,6 +94,7 @@ class Database:
         self.diaphragm = dfDiaphragm
         self.loadCase = dfLoadCase
         self.recorders = dfRecorders
+        self.multispring =  dfMultiSpring
     
     def get_node_list(self):
         index_list = list(self.node.index.values)

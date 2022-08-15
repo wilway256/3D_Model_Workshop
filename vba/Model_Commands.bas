@@ -370,3 +370,29 @@ Function Find_Vertical_Element(colName As String, height As Double) As String:
   'Returns "" if no value is found
 End Function
 
+Sub Remove_Row(sheetname As String, row As Long)
+'Written 10-Aug-2022
+  
+  Dim sh As Worksheet
+  Set sh = Sheets(sheetname)
+  sh.Rows(row).EntireRow.Delete
+  
+End Sub
+
+Sub Add_Row_to_Sheet(sheetname As String, ParamArray items() As Variant)
+'Written 10-Aug-2022
+  
+  Dim sh As Worksheet
+  Set sh = Sheets(sheetname)
+  
+  Dim row As Long
+  row = Next_Row(sheetname)
+  
+  Dim i As Long
+  Dim item As Variant
+  i = 0
+  For Each item In items
+    sh.Cells(row, i + 1).Value = items(i)
+    i = i + 1
+  Next item
+End Sub
