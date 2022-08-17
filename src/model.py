@@ -219,7 +219,7 @@ def make_diaphragm_constraints(db):
         ops.rigidDiaphragm(3, mTag, cTag)
     
 def make_material(material, dfProp, **kwargs):
-    global mat_dict; print(mat_dict)
+    global mat_dict
     try:
         next_tag = max(mat_dict.values()) + 1
     except:
@@ -257,20 +257,19 @@ def make_material(material, dfProp, **kwargs):
         
         Fy = fy*b*t**2/3/D
         k0 = 16/27/pi*E*b*(t/D)**3
-        print(Fy, type(Fy), k0, type(k0))
+        
         ops.uniaxialMaterial('Steel02', next_tag, Fy, k0, alpha)
         
         return next_tag
     
     elif material[:2] == 'ms':
-        print('Pre:', mat_dict)
+        
         K = kwargs['K']
         Fy = kwargs['Fy']
         alpha = kwargs['alpha']
         
         mat_dict[material] = next_tag
         
-        print(K, type(K), Fy, type(Fy), alpha, type(alpha))
         ops.matTag = ops.uniaxialMaterial('ElasticPPGap', next_tag, K, Fy, 0.0, alpha, 'damage')
         
         return next_tag
@@ -280,7 +279,6 @@ def make_material(material, dfProp, **kwargs):
                          'Valid matierials must start with PT or UFP.')
         return 'ERROR'
     
-    print(next_tag, mat_dict)
 
 def rayleigh_damping(zeta, modes, highmode=False, printme=True):
     '''
