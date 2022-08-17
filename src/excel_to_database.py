@@ -8,82 +8,77 @@ Created on Mon Nov 15 11:24:08 2021
 import pandas
 
 
-# %% Dataframes
-def initialize_database(filename):
-    # %%% Nodes
-    dfNode = pandas.read_excel(filename, sheet_name='nodes',
-                                  dtype={'Tag':int,
-                                         'X':float,
-                                         'Y':float,
-                                         'Z':float,
-                                         'Group':str})
-    
-    dfFix = pandas.read_excel(filename, sheet_name='nodeFix')
-    dfFix.iloc[:, 1:] = dfFix.iloc[:, 1:]=='Fixed'
-    
-    dfNodeMass = pandas.read_excel(filename, sheet_name='nodeMass',
-                                   dtype={'X':float, 'RX':float,
-                                          'Y':float, 'RY':float,
-                                          'Z':float, 'RZ':float})
-    
-    dfNodeLoad = pandas.read_excel(filename, sheet_name='nodeLoads',
-                                   dtype={'Node':str,
-                                          'Load':float,
-                                          'Direction':str,
-                                          'Pattern':str})
-    
-    # %%% Elements
-    dfEleList = pandas.read_excel(filename, sheet_name='elements', 
-                                  dtype={'UID':str,
-                                         'PropertyID':str,
-                                         'Tag':int,
-                                         'iNode':str,
-                                         'jNode':str,
-                                         'Group':str})
-    dfEleList.fillna(value={'Group':''}, inplace=True)
-    
-    dfEleType = pandas.read_excel(filename, sheet_name='eleProperties')
-    dfEleType = dfEleType.astype(float, copy=False, errors='ignore')
-    
-    dfTransf = pandas.read_excel(filename, sheet_name='eleTransf',
-                                  dtype={'Tag':int,
-                                         'Xvec':float,
-                                         'Yvec':float,
-                                         'Zvec':float})
-    # %%% Multispring
-    try:
-        dfMultiSpring = pandas.read_excel(filename, sheet_name='multispring',
-                                          dtype={'Area':float,
-                                                  'K':float})
-    # Blank if does not exist
-    except:
-        dfMultiSpring = pandas.DataFrame()
-    
-    # %%% Constraints
-    dfDiaphragm = pandas.read_excel(filename, sheet_name='diaphragms')
-    
-    # %%% Other
-    dfLoadCase = pandas.read_excel(filename, sheet_name='loadCases', 
-                                   dtype={'Steps':'Int64'})
-
-    dfRecorders = pandas.read_excel(filename, sheet_name='recorders', usecols="A:G",
-                                   dtype={'Node DOF':str, 'Case':str, 'Envelope':str})
-    dfRecorders.dropna(how='all', inplace=True)
-    dfRecorders.fillna(value={'Case':''}, inplace=True)
-    
-    
-    # %% Set the first column of each worksheet as the index.
-    for df in [dfNode, dfFix, dfNodeMass, dfEleList, dfEleType, dfDiaphragm, dfTransf, dfLoadCase, dfMultiSpring]:
-        df.set_index(df.columns[0], inplace=True)
-    
-    database = Database(dfNode, dfFix, dfNodeMass, dfNodeLoad, dfEleList, dfEleType, dfTransf, dfDiaphragm, dfLoadCase, dfRecorders, dfMultiSpring)
-    
-    return database
-
 # %% Class definition
 class Database:
+        
+    def __init__(self, filename):
+        # Nodes
+        dfNode = pandas.read_excel(filename, sheet_name='nodes',
+                                      dtype={'Tag':int,
+                                             'X':float,
+                                             'Y':float,
+                                             'Z':float,
+                                             'Group':str})
+        
+        dfFix = pandas.read_excel(filename, sheet_name='nodeFix')
+        dfFix.iloc[:, 1:] = dfFix.iloc[:, 1:]=='Fixed'
+        
+        dfNodeMass = pandas.read_excel(filename, sheet_name='nodeMass',
+                                       dtype={'X':float, 'RX':float,
+                                              'Y':float, 'RY':float,
+                                              'Z':float, 'RZ':float})
+        
+        dfNodeLoad = pandas.read_excel(filename, sheet_name='nodeLoads',
+                                       dtype={'Node':str,
+                                              'Load':float,
+                                              'Direction':str,
+                                              'Pattern':str})
+        
+        # Elements
+        dfEleList = pandas.read_excel(filename, sheet_name='elements', 
+                                      dtype={'UID':str,
+                                             'PropertyID':str,
+                                             'Tag':int,
+                                             'iNode':str,
+                                             'jNode':str,
+                                             'Group':str})
+        dfEleList.fillna(value={'Group':''}, inplace=True)
+        
+        dfEleType = pandas.read_excel(filename, sheet_name='eleProperties')
+        dfEleType = dfEleType.astype(float, copy=False, errors='ignore')
+        
+        dfTransf = pandas.read_excel(filename, sheet_name='eleTransf',
+                                      dtype={'Tag':int,
+                                             'Xvec':float,
+                                             'Yvec':float,
+                                             'Zvec':float})
+        # Multispring
+        try:
+            dfMultiSpring = pandas.read_excel(filename, sheet_name='multispring',
+                                              dtype={'Area':float,
+                                                      'K':float})
+        # blank if does not exist
+        except:
+            dfMultiSpring = pandas.DataFrame()
+        
+        # Constraints
+        dfDiaphragm = pandas.read_excel(filename, sheet_name='diaphragms')
+        
+        # Other
+        dfLoadCase = pandas.read_excel(filename, sheet_name='loadCases', 
+                                       dtype={'Steps':'Int64'})
     
-    def __init__(self, dfNode, dfFix, dfNodeMass, dfNodeLoad, dfEleList, dfEleType, dfTransf, dfDiaphragm, dfLoadCase, dfRecorders, dfMultiSpring):
+        dfRecorders = pandas.read_excel(filename, sheet_name='recorders', usecols="A:G",
+                                       dtype={'Node DOF':str, 'Case':str, 'Envelope':str})
+        dfRecorders.dropna(how='all', inplace=True)
+        dfRecorders.fillna(value={'Case':''}, inplace=True)
+        
+        
+        # Set the first column of each worksheet as the index.
+        for df in [dfNode, dfFix, dfNodeMass, dfEleList, dfEleType, dfDiaphragm, dfTransf, dfLoadCase, dfMultiSpring]:
+            df.set_index(df.columns[0], inplace=True)
+        
+        # Make dataframes class properties
         self.node = dfNode
         self.fixity = dfFix
         self.nodeMass = dfNodeMass
@@ -95,7 +90,7 @@ class Database:
         self.loadCase = dfLoadCase
         self.recorders = dfRecorders
         self.multispring =  dfMultiSpring
-    
+   
     def get_node_list(self):
         index_list = list(self.node.index.values)
         return index_list
@@ -262,6 +257,6 @@ class Database:
 if __name__ == '__main__':
     import os
     os.chdir(r'../')
-    db = initialize_database(r'Model_Builder.xlsm')
+    db = Database(r'Model_Builder.xlsm')
     
-    db.parse('ele', 'GRP:')
+    a = db.parse('ele', 'GRP:')

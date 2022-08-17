@@ -9,9 +9,9 @@ Created on Mon Nov 15 10:44:00 2021
 from timeit import default_timer
 from time import strftime, gmtime
 # from math import sqrt, pi
-import src.model as m
+from src.model import Model
 import openseespy.opensees as ops
-from src.excel_to_database import initialize_database
+from src.excel_to_database import Database
 from src.bookkeeping import make_output_directory, save_input_file
 import src.analysis as analysis
 from src.recorder import apply_recorders
@@ -25,32 +25,32 @@ out_dir, out_folder = make_output_directory()
 # %% Import Data
 print('Starting Import')
 start = default_timer()
-model_filename = 'Model_Builder.xlsm'
-db = initialize_database(model_filename)
+model_filename = 'Model_Builder UFP and PT.xlsm'
+db = Database(model_filename)
 save_input_file(model_filename, out_folder)
 # ops.logFile(out_dir + 'log.txt', '-noEcho') # Must restart kernel if this is active.
 
 # %% Define Structure
 print('Defining Structure ' + strftime('%H:%M:%S', gmtime(default_timer() - start)))
-m.make_model('3D')
+model = Model(db)
 
-m.define_nodes(db)
+model.define_nodes()
 
-m.fix_nodes(db)
+model.fix_nodes()
 
-m.assign_node_mass(db)
+model.assign_node_mass()
 
-m.make_diaphragm_constraints(db)
+model.make_diaphragm_constraints()
 
-m.define_transformations(db)
+model.define_transformations()
 
-m.make_elements(db, rigidLinkConstraint=True)
+model.make_elements(rigidLinkConstraint=True)
 print('Model Built', default_timer() - start)
 # %% PrintModel
 # ops.printModel('-file', model_filename.split('.')[0] + '.txt')
 
 # %% Eigenvalue Analysis
-m.rayleigh_damping(0.05, (1, 9))
+model.rayleigh_damping(0.05, (1, 9))
 
 print('Eigen', default_timer() - start)
 # %% Loop through Each Load Case
