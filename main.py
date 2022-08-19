@@ -25,7 +25,7 @@ out_dir, out_folder = make_output_directory()
 # %% Import Data
 print('Starting Import')
 start = default_timer()
-model_filename = 'Model_Builder UFP and PT.xlsm'
+model_filename = 'Model_Builder.xlsm'
 db = Database(model_filename)
 save_input_file(model_filename, out_folder)
 # ops.logFile(out_dir + 'log.txt', '-noEcho') # Must restart kernel if this is active.
@@ -101,12 +101,14 @@ for case in loadCases.index:
         analysis.dynamic_analysis(db, case)
         print('Quake', default_timer() - start)
     
-    analysis.reset_gravity(db)
+    # analysis.reset_gravity(db)
     ops.remove('recorders')
-    ops.reset()
+    # ops.reset()
     
 print('\n==  Out of Loop  == ' + strftime('%H:%M:%S', gmtime(default_timer() - start)))
 
 # M, C, K = analysis.MCK()
 # ops.wipe()
 
+print(ops.eleForce(db.get_ele_tag('ACLT_PT_NE'))[8])
+print(ops.eleForce(db.get_ele_tag('MPP1_PT_NE'))[8])

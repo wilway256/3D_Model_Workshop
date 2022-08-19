@@ -234,9 +234,10 @@ class Model(Database):
         if material[:2] == 'PT':
             
             E = dfProp.at[material, 'E']
+            A = dfProp.at[material, 'A']
             fy = dfProp.at[material, 'fy']
             alpha = dfProp.at[material, 'alpha']
-            e0 = dfProp.at[material, 'init_strain']
+            F0 = dfProp.at[material, 'init_force']
             eu = dfProp.at[material, 'fail_strain']
             
             self.mat_dict[material + '_EPPGap'] = next_tag
@@ -244,8 +245,8 @@ class Model(Database):
             self.mat_dict[material] = next_tag + 2
             
             ops.uniaxialMaterial('ElasticPPGap', next_tag, E, fy, 0.0, alpha)
-            ops.uniaxialMaterial('InitStrainMaterial', next_tag+1, next_tag, e0)
-            # ops.uniaxialMaterial('InitStressMaterial', next_tag+1, next_tag, e0*E)
+            # ops.uniaxialMaterial('InitStrainMaterial', next_tag+1, next_tag, e0)
+            ops.uniaxialMaterial('InitStressMaterial', next_tag+1, next_tag, F0/A)
             ops.uniaxialMaterial('MinMax', next_tag+2, next_tag+1, '-max', eu)
             
             return next_tag + 2
