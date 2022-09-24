@@ -122,8 +122,17 @@ def plot_gm(file, dt=None):
         if dt ==None:
             dt = float(input("Please enter dt: "))
         
-        data = [float(line) for line in file.readlines()]
-        N = len(data)
+        try:
+            data = [float(line) for line in file.readlines()]
+            data = np.asarray(data)
+            N = len(data)
+        except:
+            pass
+        #     file.seek(0, 0)
+        #     data = [line.split() for line in file.readlines()]
+        #     data = np.asfarray(data).T
+        #     N = data.shape[1]
+        
         last = N*dt - dt
         t = np.linspace(0.0, last, N)
         
@@ -148,17 +157,58 @@ def pick_and_plot(folder='.'):
     print('You selected:', temp[choice])
     with open(folder + '/' + gm_files[choice]) as file:
         plot_gm(file)
+
+def sixdof_to_txt(folder, convert_all=False):
     
+    gm_files = os.listdir(folder)
+    
+    
+    
+    temp= []
+    i = 1
+    print('\nPlease choose a file:\n')
+    for filename in gm_files:
+        if filename.endswith('.txt'):# or filename.endswith('.AT2'):
+            temp.append(filename)
+            print('{:3d}   {}'.format(i, filename))
+            i += 1
+    gm_files = temp
+    
+    if not convert_all:
+        choice = int(input())-1
+        print('You selected:', temp[choice])
+        gm_files = [gm_files[choice]]
+    
+    for gm_file in gm_files:
+        filepath = folder + '/' + gm_file
+        with open(filepath) as file:
+            data = [line.split() for line in file.readlines()]
+        data = np.asfarray(data)
+        
+        for i in range(3): # x, y, and z
+            path = filepath[:-9]
+            out = path + '_' + 'xyz'[i] + '.txt'
+            np.savetxt(out, data[:, i])
+
+def get_file_names():
+    for file in os.listdir():
+        if '.txt' in file:
+            print('gm/' + file)
 
 if __name__ == '__main__':
-    files = ['input.txt', 'RSN825_CAPEMEND_CPM000.txt', 'RSN825_CAPEMEND_CPM090.txt', 'RSN942_NORTHR_ALH090.txt']
-    for i in files:
-        with open(i) as file:
-            plot_gm(file, 0.05)
+    # Test plot_gm
+    # files = ['input.txt', 'RSN825_CAPEMEND_CPM000.txt', 'RSN825_CAPEMEND_CPM090.txt', 'RSN942_NORTHR_ALH090.txt']
+    # for i in files:
+    #     with open(i) as file:
+    #         plot_gm(file, 0.05)
     
     # PEER_to_txt('RSN942_NORTHR_ALH090.AT2')
     
     # l, a, b = PEER_to_list('RSN942_NORTHR_ALH090.AT2')
     
+    # Test pick_and_plot (leave on by default)
+    pick_and_plot()
     
+    # Split 6dof files
+    # sixdof_to_txt('./Final_ Phase 1 Ground Motions sent to UCSD', convert_all=True)
     
