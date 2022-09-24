@@ -6,7 +6,7 @@ Created on Mon Nov 15 11:24:08 2021
 """
 
 import pandas
-
+import openseespy.opensees as ops
 
 # %% Class definition
 class Database:
@@ -90,6 +90,10 @@ class Database:
         self.loadCase = dfLoadCase
         self.recorders = dfRecorders
         self.multispring =  dfMultiSpring
+        
+        # Instance Variables (for recorders and output)
+        self.out_dir = ''
+        self.active_case = ''
    
     def get_node_list(self):
         index_list = list(self.node.index.values)
