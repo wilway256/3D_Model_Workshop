@@ -13,7 +13,9 @@ import numpy as np
 import openseespy.opensees as ops
 import matplotlib.pyplot as plt
 import matplotlib
-# import opsvis
+from .excel_to_database import Database
+import pandas as pd
+import numpy as np
 # import src.postprocessing_active as pp1
 # import src.postprocessing_saved as pp2
 
@@ -37,6 +39,14 @@ import matplotlib
 # opsvis.plot_mode_shape(1, interpFlag=0)
 
 # %% Visualization
+
+def global_forces():
+    total = np.zeros((6))
+    ops.reactions()
+    for tag in ops.getNodeTags():
+        nodeRxn = np.array(ops.nodeUnbalance(tag))
+        total += nodeRxn
+    return total
 
 def plot_nodes(factor=100.0):
     fig = plt.figure()
@@ -74,13 +84,32 @@ def disp_to_coords(df, info, factor = 50.0):
     
     return df
 
+def plot_base_spring(model, name):
+    if 'CLT' in name:
+        xory = 0
+    elif 'MPP' in name:
+        xory = 1
+    else:
+        raise ValueError
+    tags = model.get_tag('node', model.parse('node', 'GRP:base; HASNT:fixed; CONT:' + name))
+    tags = tags + [model.get_tag('node', 'F1' + name)]
+    x = np.zeros((len(tags)))
+    z = np.zeros((len(tags)))
+    for i, tag in enumerate(tags):
+        x[i] = ops.nodeCoord(tag)[xory]
+        z[i] = ops.nodeDisp(tag)[2]
+    
+    fig, ax = plt.subplots()
+    ax.plot(x, z, '.')
+        
+
 # %% XML Parser
 import os
 import xml.etree.ElementTree as ET
 
 import pandas as pd
-from src.excel_to_database import initialize_database
-from tkinter.filedialog import askopenfilename
+# from excel_to_database import Database
+# from tkinter.filedialog import askopenfilename
 
 def xml_to_df(filepath, remove_blanks=False):
     # outdir = 'out/triangle/'
@@ -97,7 +126,7 @@ def xml_to_df(filepath, remove_blanks=False):
     for file in os.listdir(db_path):
         if file[:-1].endswith('.xls'):
             print(db_path + file)
-            db = initialize_database(db_path + file)
+            db = Database(db_path + file)
     
     tree = ET.parse(filepath)
     root = tree.getroot()
@@ -159,6 +188,31 @@ def xml_to_csv(folder, name):
 class Response:
     pass
 
+def plot_disp(filepath, sfac=1.0):
+    df, headers, info = xml_to_df(filepath)
+    # print(df)
+    nodedf = info.transpose()#, columns=headers.keys(), index=['x', 'y', 'z', 'dx', 'dy', 'dz'])
+    
+    plt.figure()
+    ax = plt.axes(projection='3d')
+    ax.scatter(nodedf.loc['X'], nodedf.loc['Y'], nodedf.loc['Z'], marker='.', c='green')
+    
+    for node in nodedf.columns:
+        filtered_columns = [col for col in df if col.startswith(node)]
+        for dof, direction in zip([1, 2, 3], ['X', 'Y', 'Z']):
+            col_index = [col for col in filtered_columns if col.endswith(str(dof))][0]
+            nodedf.at[direction, node] += sfac * df.at[0, col_index]
+    
+    # plt.figure()
+    # ax = plt.axes(projection='3d')
+    ax.scatter(nodedf.loc['X'], nodedf.loc['Y'], nodedf.loc['Z'], marker='.')
+    
+    ax.set_xlabel('X (in.)')
+    ax.set_ylabel('Y (in.)')
+    ax.set_zlabel('Z (in.)')
+    
+    return df, nodedf
+
 def animate_df(df):
     frames = len(df) - 1
     fig = plt.figure()
@@ -190,39 +244,58 @@ def animate_df(df):
     writergif = matplotlib.animation.PillowWriter(fps=1) 
     ani.save('xxx.gif', writer=writergif)
 
-# def update_graph():
-#     pass
+def choose_folder():
+    cwd = os.getcwd()
+    if 'out' in os.listdir(cwd):
+        pass
+    else:
+        raise ValueError
+
+class Output(Database):
+    
+    def __init__(self, filename):
+        super().__init__(filename)
 
 if __name__ == '__main__':
-    outdir = 'out/temp/dispX/'
-    file = 'center_disp.xml'
+    outdir = '../out/temp/'
+    file = 'eigen/eigen04.xml'
     filepath = outdir + file
-    df, h, info = xml_to_df(filepath, remove_blanks=False)
     
-    df2 = disp_to_coords(df, info)
-    # animate_df(df2)
-    frames = len(df) - 1
-    xs = df2['F11_center D1']
-    ys = df2['F11_center D2']
-    # zs = df2.loc['F11_center D3']
-    
-    def update(t):
-        ax.cla()
-    
-        x = xs[t]
-        y = ys[t]
-        z = 0
-    
-        ax.scatter(x, y, z, s=9, marker = 'o')
-    
-        ax.set_xlim(0, 400)
-        ax.set_ylim(0, -400)
-        ax.set_zlim(-5, 5)
+    df1, df2 = plot_disp(filepath, sfac=100)
     
     
-    fig = plt.figure(dpi=100)
-    ax = fig.add_subplot(projection='3d')
     
-    ani = matplotlib.animation.FuncAnimation(fig = fig, func = update, frames = frames, interval = 200)
     
-    plt.show()
+    
+    
+    
+    
+    # df, h, info = xml_to_df(filepath, remove_blanks=False)
+    
+    # df2 = disp_to_coords(df, info)
+    # # animate_df(df2)
+    # frames = len(df) - 1
+    # xs = df2['F11_center D1']
+    # ys = df2['F11_center D2']
+    # # zs = df2.loc['F11_center D3']
+    
+    # def update(t):
+    #     ax.cla()
+    
+    #     x = xs[t]
+    #     y = ys[t]
+    #     z = 0
+    
+    #     ax.scatter(x, y, z, s=9, marker = 'o')
+    
+    #     ax.set_xlim(0, 400)
+    #     ax.set_ylim(0, -400)
+    #     ax.set_zlim(-5, 5)
+    
+    
+    # fig = plt.figure(dpi=100)
+    # ax = fig.add_subplot(projection='3d')
+    
+    # ani = matplotlib.animation.FuncAnimation(fig = fig, func = update, frames = frames, interval = 200)
+    
+    # plt.show()
