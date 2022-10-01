@@ -112,6 +112,11 @@ class Database:
         name = df.loc[ df['Tag'] == nodeTag ].index[0]
         return name
     
+    def get_ele_name(self, tag):
+        df = self.ele
+        name = df.loc[ df['Tag'] == tag ].index[0]
+        return name
+    
     def tag_to_name(self, node_or_ele, tag):
         df = self.node_or_ele(node_or_ele)
         
@@ -129,7 +134,7 @@ class Database:
         return tag
     
     def get_tag(self, node_or_ele, UID):
-        
+        UID = UID.copy() #otherwise modifies original list
         df = self.node_or_ele(node_or_ele)
         
         if type(UID) == str:
@@ -244,6 +249,11 @@ class Database:
                 UID_list = list(set(UID_list).intersection(subset))
             else:
                 UID_list = subset
+        
+        # Sorting algorithm
+        sortorder = self.get_tag(node_or_ele, UID_list)
+        UID_list = [x for _, x in sorted(zip(sortorder, UID_list))]
+        
         return UID_list
     
     def node_or_ele(self, node_or_ele):
@@ -263,4 +273,4 @@ if __name__ == '__main__':
     os.chdir(r'../')
     db = Database(r'Model_Builder.xlsm')
     
-    a = db.parse('ele', 'GRP:')
+    a = db.parse('ele', 'CONT:F2Wall; HASNT:_UFP')
