@@ -9,12 +9,15 @@ Created on Mon Nov 15 11:24:08 2021
 @author: wroser
 """
 
+import re
 import numpy as np
 import openseespy.opensees as ops
 import matplotlib.pyplot as plt
 import matplotlib
-from .excel_to_database import Database
+import Model_10_Story
+from Model_10_Story.src.excel_to_database import Database
 import pandas as pd
+from pandas import DataFrame
 import numpy as np
 # import src.postprocessing_active as pp1
 # import src.postprocessing_saved as pp2
@@ -251,17 +254,262 @@ def choose_folder():
     else:
         raise ValueError
 
-class Output(Database):
+# class Output(Database):
     
-    def __init__(self, filename):
-        super().__init__(filename)
+#     def __init__(self, filename):
+#         super().__init__(filename)
+
+  
+
+def folder_select(path):
+    i = 1
+    print('Please select a folder...')
+    for folder in next(os.walk(path))[1]:
+        if '.' not in folder:
+            print('{:>2d} - {:}'.format(i, folder))
+            i += 1
+    i = int(input())
+    return path + '/' + folder
+
+class Output:
+    def __init__(self, output_folder=None, cases=None):
+        # Select output folder if not specified
+        
+        if output_folder == None:
+            output_folder = Model_10_Story.__path__[0] + '/out'
+            # i = 1
+            # print('Please select a folder...')
+            # for folder in os.listdir(output_folder):
+            #     if '.' not in folder:
+            #         print('{:>2d} - {:}'.format(i, folder))
+            # i = int(input())
+            self.path = folder_select(output_folder)
+        else:
+            self.path = Model_10_Story.__path__[0] + '/out/' + output_folder
+        
+        # Loop through analyses
+        print(self.path)
+        self.cases = {}
+        for folder in next(os.walk(self.path))[1]:
+            self.cases[folder] = Case(self.path + '/' + folder)
+            
+
+class Case():
+    def __init__(self, path):
+        pass
+
+class Recorder():
+    '''
+    
+    '''
+    
+    def __init__(self, path):
+        self.path = path
+        self.nodes = {}
+        self.df, self.hierarchy, self.info = self.xml_to_df(path)
+        self.tags = list(self.hierarchy.keys())
+        
+        
+        # Can't subclass DataFrame
+        self.columns = self.df.columns
+        self.loc = self.df.loc
+        
+    def __getitem__(self, index):
+        return self.df[index]
+    
+    def xml_to_df(self, filepath, db=None, remove_blanks=False):
+        '''
+        Returns:
+            df: pandas dataframe of results
+            hierarchy: links individual responses to their node/element
+            coords: nodal coordinates
+        '''
+        
+        # Get database for node and element names. Use tags if not available
+        use_names = db != None
+        
+        # Parse XML using xml.etree.ElementTree
+        tree = ET.parse(filepath)
+        root = tree.getroot()
+        
+        column_names = []
+        hierarchy = {}
+        coord = {}
+        node_or_ele = ''
+        
+        for element in root.iter():
+    
+            if element.tag == 'TimeOutput':
+                column_names.append(element[0].text)
+    
+            elif element.tag == 'NodeOutput':
+                node_or_ele = 'node'
+                tag = element.attrib['nodeTag']
+                nodeName = db.get_node_name(int(tag)) if use_names else tag
+                hierarchy[nodeName] = []
+                for response in range(len(element)):
+                    column_names.append(nodeName + ' ' + element[response].text)
+                    hierarchy[nodeName].append(element[response].text)
+                
+                coord[nodeName] = [element.attrib['coord1'], element.attrib['coord2'], element.attrib['coord3']]
+                
+                    
+            elif element.tag == 'ElementOutput':
+                node_or_ele = 'ele'
+                tag = element.attrib['eleTag']
+                eleName = db.tag_to_name('ele', int(tag)) if use_names else tag
+                hierarchy[eleName] = []
+                for response in range(len(element)):
+                    column_names.append(eleName + ' ' + element[response].text)
+                    hierarchy[eleName].append(element[response].text)
+                
+                self.nodes[eleName] = [element.attrib['node1'], element.attrib['node2']]
+        
+        coord = pd.DataFrame.from_dict(coord, orient='index', columns=['X', 'Y', 'Z'], dtype=float)
+        # Get data table
+        # Explanation: OpenSees outputs all traditional recorder outputs within
+        #              a single tag, "Data".
+        data = root.find('Data').text
+        # Split into lines. Split each line into data points. Convert to array of floats.
+        data = data.strip().split('\n')
+        for i in range(len(data)):
+            data[i] = data[i].split() # 
+            for j in range(len(data[i])):
+                data[i][j] = float(data[i][j])
+        data = np.asarray(data)
+        
+        # Convert array to pandas Dataframe. Column names are from parsing the xml.
+        df = pd.DataFrame(data, columns=column_names)
+        
+        # Optional: Remove columns where all records are zero.
+        if remove_blanks:
+            for column in list(df):
+                if (df[column] == 0).all():
+                    df.drop(columns=column, inplace=True)
+        
+        return df, hierarchy, coord
+    
+    def get_dofs(self, uid):
+        newcols = list(self.loc[:, self.columns.str.startswith(str(uid) + ' ')].columns)
+        for i in range(len(newcols)):
+            newcols[i] = newcols[i].replace(str(uid) + ' ', '')
+        return newcols
+    
+    def plot_responses(self, uid):
+        pass
+    
+    def plot_dof(self, dofs):
+        if type(dofs) is str:
+            dofs = [dofs]
+        
+        # fig, ax = plt.subplots()
+        # ax.grid()
+        
+        for dof in dofs:
+            newcols = self.columns.str.endswith(dof)
+            newcols[0] = True # Adds time
+            newdf = self.loc[:, newcols]
+            ax = newdf.plot(x='time')
+        return ax
+    
+    def df_dof(self, dofs):
+        if type(dofs) is str:
+            dofs = [dofs]
+        
+        for dof in dofs:
+            newdf = self.loc[:, self.columns.str.endswith(dof)]
+            
+        return newdf
+    
+    def get_response(self, uid, dof):
+        cols_uid = list(self.loc[:, self.columns.str.startswith(str(uid) + ' ')].columns); print(cols_uid)
+        cols_dof = list(self.loc[:, self.columns.str.endswith(str(dof))].columns); print(cols_dof)
+        cols = list(set(cols_uid) & set(cols_dof)); print(cols)
+        newdf = self.loc[:, cols]
+        return newdf
+
+def NodeRecorder(Recorder):
+    pass
+
+def tags_to_names(path):
+    
+    # Open database object
+    path = path.replace('\\', '/')
+    out_folder, analysisID = path.split('out/')
+    out_folder += 'out/'
+    analysisID = analysisID.split('/')[0]
+    try:
+        db = Database(out_folder + analysisID + '/Model_Builder.xlsm')
+    except:
+        print(out_folder + analysisID + '/Model_Builder.xlsm not found.')
+        print(os.listdir(out_folder + analysisID))
+        filename = input('Enter name of Excel file: ')
+        db = Database(out_folder + analysisID + '/' + filename)
+    
+    # Convert xml to names
+    with open(path, errors='ignore') as file:
+        filedata = file.read()
+    
+    # Find and replace: nodeTag="__" eletag="__" node1="_" node2="_"
+    
+    for regex, case in zip(['nodeTag="\d+"', 'eleTag="\d+"', 'node1="\d+"', 'node2="\d+"'], ['node', 'ele', 'node', 'node']):
+        # Find all instances that need to be replaced
+        target_strs = re.findall(regex, filedata)
+        # For each instance, get tag then replace with name from Excel file
+        for target in target_strs:
+            replace = int(re.findall('\d+', target)[0])
+            try:
+                if case == 'node':
+                    name = db.get_node_name(replace)
+                elif case == 'ele':
+                    name = db.get_ele_name(replace)
+                else:
+                    raise ValueError
+            except:
+                print(replace, case)
+            before, after = regex.split('\d+')
+            replace = before + name + after
+            filedata = re.sub(target, replace, filedata)
+            target = re.findall(regex, filedata)
+    
+    # Do not overwrite original file
+    # path = re.sub('\.xml', '_alt.xml', path)
+        
+    # Overwrite original file
+    with open(path, 'w') as file:
+        file.write(filedata)
+    return db
+
+def output_preprocessing(outfolder):
+    for subdir, dirs, files in os.walk(outfolder): # dirs should be individual load cases
+        for subfolder in dirs:
+            for subdir, dirs, files in os.walk(outfolder + '/' + subfolder): # get files in folder
+                for file in files:
+                    if file.endswith('.xml'): # can corrupt other files
+                        tags_to_names(subdir + '/' + file)
 
 if __name__ == '__main__':
-    outdir = '../out/temp/'
-    file = 'eigen/eigen04.xml'
-    filepath = outdir + file
     
-    df1, df2 = plot_disp(filepath, sfac=100)
+    # %% Script - change tags to names in xml file
+    db = output_preprocessing('C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/deleteme')
+    # db = tags_to_names('C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/deleteme2/gravity/wall_disp.xml')
+    
+    # %% Script
+    # # results = Output('temp')
+    # node = Recorder('C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/temp/lateralX/wall_disp.xml')
+    # eleX = Recorder('C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/temp/lateralX/wall_base_forces.xml')
+    # eleY = Recorder('C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/temp/lateralY/wall_base_forces.xml')
+    # rxn = Recorder('C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/temp/lateralX/reactions.xml')
+    
+    # eleX.plot_dof('Mx_1')
+    # eleY.plot_dof('My_1')
+    
+    # %% Script
+    # outdir = '../out/temp/'
+    # file = 'eigen/eigen04.xml'
+    # filepath = outdir + file
+    
+    # df1, df2 = plot_disp(filepath, sfac=100)
     
     
     
@@ -269,7 +517,7 @@ if __name__ == '__main__':
     
     
     
-    
+    # %% Script
     # df, h, info = xml_to_df(filepath, remove_blanks=False)
     
     # df2 = disp_to_coords(df, info)
