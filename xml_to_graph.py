@@ -55,8 +55,9 @@ class App(tk.Tk):
         
         # Matplotlib figure
         self.fig = mpl.figure.Figure(figsize=(10, 8), dpi=100)
+        mpl.pyplot.style.use('seaborn-whitegrid')
         self.ax = self.fig.add_subplot(1, 1, 1)
-        self.ax.grid()
+        # self.ax.grid()
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.frame_plot)
         self.canvas.draw()
         self.canvas.get_tk_widget().pack(side=tk.BOTTOM)
@@ -90,13 +91,25 @@ class App(tk.Tk):
         
         
         ttk.Button(self.frame_left, text="Plot", command=self.update_plot).pack(side=tk.BOTTOM, expand=True)
-            
         
+        # Figure control window
+        fields = ['Title', 'X Label', 'Y Label', 'X Limit <', 'X Limit >', 'Y Limit v', 'Y Limit ^']
+        self.entries = {}
+        for field in fields:
+            row = ttk.Frame(self.plot_options)
+            label = ttk.Label(row, width=25, text=field+': ', anchor='w')
+            entry = ttk.Entry(row)
+            row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
+            label.pack(side=tk.LEFT)
+            entry.pack(side=tk.RIGHT, expand=tk.YES, fill=tk.X)
+            self.entries[field] = entry
+        # self.xlim_lower = tk.StringVar()
+        # self.xlim_lower = ttk.Entry(self.plot_options)
     
     def update_plot(self):
         # Wipe current plot
         self.ax.clear()
-        self.ax.grid()
+        
         # Get data
         colsX = [self.data['X'].columns[i] for i in self.listbox['X'].curselection()]
         colsX = ['time'] if colsX == [] else colsX
@@ -113,7 +126,8 @@ class App(tk.Tk):
                              self.data['Y'][headerY],
                               linewidth=0.5)
                 # self.ax.grid()
-                self.canvas.draw()
+                # self.canvas.draw()
+        
             
             
             
@@ -126,7 +140,24 @@ class App(tk.Tk):
                              self.data['Y'][headerY],
                               linewidth=0.5)
                 # self.ax.grid()
-                self.canvas.draw()
+                # self.canvas.draw()
+        
+        # Plot options
+        self.ax.set_title(self.entries['Title'].get())
+        self.ax.set_xlabel(self.entries['X Label'].get())
+        self.ax.set_ylabel(self.entries['Y Label'].get())
+        try:
+            self.ax.set_xlim(left=float(self.entries['X Limit <'].get()),
+                              right=float(self.entries['X Limit >'].get()))
+        except:
+            pass
+        try:
+            self.ax.set_ylim(bottom=float(self.entries['Y Limit v'].get()),
+                              top=float(self.entries['Y Limit ^'].get()))
+        except:
+            pass
+        # self.ax.grid()
+        self.canvas.draw()
     
     def pick_file(self, var):
         filepath = tk.filedialog.askopenfilename(initialdir='./out', filetypes=[('XML Recorder', '*.xml')])

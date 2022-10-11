@@ -6,6 +6,7 @@ Created on Mon Nov 15 11:24:08 2021
 """
 
 import pandas
+import numpy as np
 import openseespy.opensees as ops
 
 # %% Class definition
@@ -71,7 +72,7 @@ class Database:
         dfRecorders = pandas.read_excel(filename, sheet_name='recorders', usecols="A:G",
                                        dtype={'Node DOF':str, 'Case':str, 'Envelope':str})
         dfRecorders.dropna(how='all', inplace=True)
-        dfRecorders.fillna(value={'Case':''}, inplace=True)
+        dfRecorders.fillna(value={'Arguments':'', 'Case':''}, inplace=True)
         
         
         # Set the first column of each worksheet as the index.
@@ -215,10 +216,15 @@ class Database:
         else:
             raise ValueError("Acceptable arguments are 'node' or 'ele'.")
         
+        # Return all if blank
+        if string == '':
+            return df
+        
+        # Main Script
         args = string.split('; ')
         UID_list = []
         for arg in args:
-            # Note: Using Python 3.8. match/case not available.
+            # Note: Using Python 3.8. match/case are not available.
             cmd, value = arg.split(':')
             if cmd == 'NAME':
                 subset = [value]
@@ -266,6 +272,10 @@ class Database:
             raise ValueError("Acceptable arguments are 'node' or 'ele'.")
         
         return df
+    
+    def node_coord(self, uid):
+        coord = np.asarray(self.node[['X', 'Y', 'Z']].loc[uid])
+        return coord
 
 
 if __name__ == '__main__':

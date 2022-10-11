@@ -333,6 +333,17 @@ def gravity(model, record=True):
 
 def ramp_loadcontrol(model, N, dt, *cases):
     
+    N = int(N)
+    dt = float(dt)
+    
+    fig, ax = plt.subplots()
+    x = np.zeros(N)
+    y = np.zeros(N)
+    ax.set_title(model.active_case)
+    fig.suptitle('Top of Bldg. Displacement')
+    ax.set_xlabel('x (in.)')
+    ax.set_ylabel('y (in.)')
+    
     gravity(model, record=False)
     
     print('Load control analysis...')
@@ -351,23 +362,25 @@ def ramp_loadcontrol(model, N, dt, *cases):
     ops.numberer("Plain")
     ops.constraints("Transformation")
     # ops.constraints("Lagrange", 1e20, 1e20)
-    ops.integrator("LoadControl", float(dt), 1)
+    ops.integrator("LoadControl", dt, 1)
     ops.test('EnergyIncr', 1e-20, 200, 1)
     ops.algorithm("KrylovNewton")
     ops.analysis("Static")
     
     # Analysis Loop
-    for i in range(int(N)):
+    for i in range(N):
         if (i+1)%50 == 0:
             print("Step: ", i+1)
         ok = ops.analyze(1)
-        # if ok != 0: # If does not converge
+        if ok != 0: # If does not converge
+            print(ops.testNorm())
         #     ops.algorithm("ModifiedNewton")
         #     ops.test('EnergyIncr', 1e-2, 500, 1)
-        # ops.record()
-        print(ops.nodeDisp(model.get_node_tag('F11_center')))
-        sumForces()
+        x[i], y[i] = ops.nodeDisp(model.get_node_tag('F11_center'))[:2]
+        # sumForces()
     
+    ax.plot(x, y)
+    ax.grid()
     # Cleanup
     ops.remove('recorders')
     ops.remove('timeSeries', 1)
@@ -556,20 +569,20 @@ def ramp_dispcontrol(model, node, dof, N, dt, *cases):
 #     ops.wipeAnalysis()
 #     ops.reset()
     
-def initial_stiffness(model):
+def initial_stiffness(model, dof, *cases):
     
     import numpy as np
     import matplotlib.pyplot as plt
     from src.analysis import sumForces
     from src.analysis import gravity
     node = 'F11_center'
-    dof = 'X'
+    # dof = 'X'
     Ns = [10]#, 40, 40, 40, 40, 40]
     dts = [0.25]#, -0.25, 0.25, -0.25, 0.5, -0.5]
     tag = model.get_node_tag(node)
     dofs = {'X':1, 'Y':2, 'Z':3}
     dof = dofs[dof]
-    cases = ['ASCE_X']
+    # cases = ['ASCE_X']
     
     phi = np.zeros((sum(Ns)))
     M = phi.copy()
@@ -627,8 +640,18 @@ def initial_stiffness(model):
                     print(ok)
                     if ok != 0:
                         break
-            phi[step] = ops.nodeDisp(5)[4]
-            M[step] = ops.eleResponse(33, 'force')[4]
+            
+            if dof == 1:
+                nodetag = 5
+                idof = 4
+                eletag = 33
+            elif dof == 2:
+                nodetag = 6
+                idof = 3
+                eletag = 35
+            
+            phi[step] = ops.nodeDisp(nodetag)[idof]
+            M[step] = ops.eleResponse(eletag, 'force')[idof]
             # print(ops.nodeDisp(model.get_node_tag('F11_center')))
             # print(ops.nodeDisp(5)[4], '\n')
             step+=1
@@ -642,3 +665,69 @@ def initial_stiffness(model):
     for i in range(len(M)-1):
         K = (M[i+1] - M[i]) / (phi[i+1] - phi[i])
         print('K_rot = {}'.format(K))
+    
+    # Cleanup
+    ops.remove('timeSeries', 1)
+    ops.remove('loadPattern', 1)
+    ops.remove('timeSeries', 2)
+    ops.remove('loadPattern', 2)
+    ops.wipeAnalysis()
+    ops.reset()
+
+def eq3DOF(model, filename, dt, N):
+    
+    gravity(model, record=False)
+    
+    print('Earthquake analysis' + filename + '...')
+    
+    # Ground motion
+    dt = float(dt)
+    N = int(N)
+    
+    dof = 'XYZ'
+    suffix = 'xyz'
+    dofs = {'X':1, 'Y':2, 'Z':3}
+    
+    
+    for i in range(3):
+        path = 'gm\\' + filename + '_' + suffix[i] + '.txt'
+        print(path, dt, i+2)
+        ops.timeSeries('Path', i + 2, '-dt', dt, '-filePath', path, '-factor', 32.2*12)
+        ops.pattern('UniformExcitation', i + 2, dofs[dof[i]], '-accel', i + 2)
+    
+    
+    
+    
+    # Recorders
+    model.apply_recorders(model.active_case)
+    ops.record()
+    
+    # Analysis Options
+    ops.system("UmfPack")
+    ops.numberer("Plain")
+    ops.constraints("Transformation")
+    ops.test('NormDispIncr', 1e-10, 100, 2)
+    ops.algorithm("KrylovNewton")
+    ops.integrator('Newmark', 0.5, 0.25)
+    ops.analysis("Transient")
+    
+    # Analysis Loop
+    for i in range(int(N)):
+        if (i+1)%1000 == 0:
+            print("Step: ", i+1)
+        ok = ops.analyze(1, dt)
+        
+        if ok != 0:
+            ok = ops.analyze(10, dt/10)
+            if ok !=0:
+                
+            #     if ok != 0:
+                    print(ops.testNorm())
+                    break
+    
+    # Cleanup
+    for i in range(1, 5):
+        ops.remove('timeSeries', i)
+        ops.remove('loadPattern', i)
+    ops.wipeAnalysis()
+    ops.reset()

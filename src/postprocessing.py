@@ -147,7 +147,7 @@ def xml_to_df(filepath, remove_blanks=False):
         elif element.tag == 'NodeOutput':
             node_or_ele = 'node'
             tag = element.attrib['nodeTag']
-            nodeName = db.get_node_name(int(tag))
+            nodeName = tag#db.get_node_name(int(tag))
             hierarchy[nodeName] = []
             for response in range(len(element)):
                 column_names.append(nodeName + ' ' + element[response].text)
@@ -158,7 +158,7 @@ def xml_to_df(filepath, remove_blanks=False):
         elif element.tag == 'ElementOutput':
             node_or_ele = 'ele'
             tag = element.attrib['eleTag']
-            eleName = db.tag_to_name('ele', int(tag))
+            eleName = tag#db.tag_to_name('ele', int(tag))
             hierarchy[eleName] = []
             for response in range(len(element)):
                 column_names.append(eleName + ' ' + element[response].text)
@@ -303,10 +303,10 @@ class Recorder():
     
     '''
     
-    def __init__(self, path):
+    def __init__(self, path, db=None, remove_blanks=False):
         self.path = path
         self.nodes = {}
-        self.df, self.hierarchy, self.info = self.xml_to_df(path)
+        self.df, self.hierarchy, self.info = self.xml_to_df(path, db=db, remove_blanks=remove_blanks)
         self.tags = list(self.hierarchy.keys())
         
         
@@ -326,7 +326,7 @@ class Recorder():
         '''
         
         # Get database for node and element names. Use tags if not available
-        use_names = db != None
+        use_names = False
         
         # Parse XML using xml.etree.ElementTree
         tree = ET.parse(filepath)
@@ -422,9 +422,9 @@ class Recorder():
         return newdf
     
     def get_response(self, uid, dof):
-        cols_uid = list(self.loc[:, self.columns.str.startswith(str(uid) + ' ')].columns); print(cols_uid)
-        cols_dof = list(self.loc[:, self.columns.str.endswith(str(dof))].columns); print(cols_dof)
-        cols = list(set(cols_uid) & set(cols_dof)); print(cols)
+        cols_uid = list(self.loc[:, self.columns.str.startswith(str(uid) + ' ')].columns)#; print(cols_uid)
+        cols_dof = list(self.loc[:, self.columns.str.endswith(str(dof))].columns)#; print(cols_dof)
+        cols = list(set(cols_uid) & set(cols_dof))#; print(cols)
         newdf = self.loc[:, cols]
         return newdf
 
@@ -486,17 +486,18 @@ def output_preprocessing(outfolder):
             for subdir, dirs, files in os.walk(outfolder + '/' + subfolder): # get files in folder
                 for file in files:
                     if file.endswith('.xml'): # can corrupt other files
+                        print('Reading:', subfolder, file)
                         tags_to_names(subdir + '/' + file)
 
 if __name__ == '__main__':
+    pass
     
     # %% Script - change tags to names in xml file
-    db = output_preprocessing('C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/deleteme')
-    # db = tags_to_names('C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/deleteme2/gravity/wall_disp.xml')
+    # db = output_preprocessing('C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/deleteme')
     
     # %% Script
     # # results = Output('temp')
-    # node = Recorder('C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/temp/lateralX/wall_disp.xml')
+    # node = Recorder('C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/SuperstitionMCE XYZ/EQ1/wall_disp.xml')
     # eleX = Recorder('C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/temp/lateralX/wall_base_forces.xml')
     # eleY = Recorder('C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/temp/lateralY/wall_base_forces.xml')
     # rxn = Recorder('C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/temp/lateralX/reactions.xml')
