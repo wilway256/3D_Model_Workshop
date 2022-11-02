@@ -188,6 +188,7 @@ def xml_to_csv(folder, name):
     df, _, _ = xml_to_df(folder + '/' + name + '.xml')
     df.to_csv(folder + '/' + name + '.csv', index=None)
 
+# %% Output Objects and Definitions
 class Response:
     pass
 
@@ -432,7 +433,25 @@ def NodeRecorder(Recorder):
     pass
 
 def tags_to_names(path):
-    
+    '''
+    Converts integer tags to names in a text file.
+
+    Parameters
+    ----------
+    path : str
+        DESCRIPTION.
+
+    Raises
+    ------
+    ValueError
+        DESCRIPTION.
+
+    Returns
+    -------
+    db : TYPE
+        DESCRIPTION.
+
+    '''
     # Open database object
     path = path.replace('\\', '/')
     out_folder, analysisID = path.split('out/')
@@ -472,7 +491,7 @@ def tags_to_names(path):
             filedata = re.sub(target, replace, filedata)
             target = re.findall(regex, filedata)
     
-    # Do not overwrite original file
+    # # Uncomment to not overwrite original file
     # path = re.sub('\.xml', '_alt.xml', path)
         
     # Overwrite original file
@@ -481,6 +500,9 @@ def tags_to_names(path):
     return db
 
 def output_preprocessing(outfolder):
+    '''
+    Walks through outfolder and changes integer tags to names in all xml recorders.
+    '''
     for subdir, dirs, files in os.walk(outfolder): # dirs should be individual load cases
         for subfolder in dirs:
             for subdir, dirs, files in os.walk(outfolder + '/' + subfolder): # get files in folder

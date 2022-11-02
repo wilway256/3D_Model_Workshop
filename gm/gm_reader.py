@@ -232,7 +232,7 @@ def plot_gm3(filename, dt, Ndof, name):
             last = N*dt - dt
             t = np.linspace(0.0, last, N)
             
-            
+            print(len(t), len(data))
             ax[i].plot(t, data, linewidth=1)
             ax[i].set_xlim((0, last))
     ax[Ndof-1].set_xlabel('Time (sec.)')
@@ -296,6 +296,24 @@ if __name__ == '__main__':
             ['27 TallWoodEqs_MCE_Northridge', 0.01, 3, 'Northridge MCE'],
             ['28 TallWoodEqs_MCE_SuperstitionHills', 0.01, 2, 'Superstition Hills MCE']]
     
-    for item in data:
-        ax = plot_gm3(*item)
+    # for item in [data[-4]]:
+    #     ax = plot_gm3(*item)
+    from response_spectrum import max_response, response_spectrum
     
+    # filename = '09 TallWoodEqs_225_4213_x.txt'
+    
+    
+    
+    for item in [data[-4]]:
+        
+        filename = item[0] + '_x.txt'
+        dt = item[1]
+        
+        with open(filename) as file:
+            accels = file.readlines()
+            for i, line in zip( range(len(accels)), accels):
+                accels[i] = float(line)
+        
+        
+        a = max_response(1.0, accels, dt)
+        print(a)
