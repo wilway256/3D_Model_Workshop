@@ -14,8 +14,9 @@ import openseespy.opensees as ops
 from src.loads import apply_nodal_loads
 import gm.gm_reader as gm
 import matplotlib.pyplot as plt
-import opsvis
+# import opsvis
 # from tools.spy import spy
+from time import strftime
 
 
 # %% Code
@@ -714,7 +715,7 @@ def eq3DOF(model, filename, dt, N):
     # Analysis Loop
     for i in range(int(N)):
         if (i+1)%1000 == 0:
-            print("Step: ", i+1)
+            print("Step: ", i+1, strftime('%H:%M:%S'))
         ok = ops.analyze(1, dt)
         
         if ok != 0:
@@ -729,5 +730,6 @@ def eq3DOF(model, filename, dt, N):
     for i in range(1, 5):
         ops.remove('timeSeries', i)
         ops.remove('loadPattern', i)
+    ops.remove('recorders')
     ops.wipeAnalysis()
     ops.reset()
