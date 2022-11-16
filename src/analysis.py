@@ -364,7 +364,7 @@ def ramp_loadcontrol(model, N, dt, *cases):
     ops.constraints("Transformation")
     # ops.constraints("Lagrange", 1e20, 1e20)
     ops.integrator("LoadControl", dt, 1)
-    ops.test('EnergyIncr', 1e-20, 200, 1)
+    ops.test('EnergyIncr', 1e-10, 200, 1)
     ops.algorithm("KrylovNewton")
     ops.analysis("Static")
     
@@ -374,7 +374,7 @@ def ramp_loadcontrol(model, N, dt, *cases):
             print("Step: ", i+1)
         ok = ops.analyze(1)
         if ok != 0: # If does not converge
-            print(ops.testNorm())
+            print(ops.testNorm()[-10:-1])
         #     ops.algorithm("ModifiedNewton")
         #     ops.test('EnergyIncr', 1e-2, 500, 1)
         x[i], y[i] = ops.nodeDisp(model.get_node_tag('F11_center'))[:2]
@@ -477,7 +477,7 @@ def ramp_dispcontrol(model, node, dof, N, dt, *cases):
     ops.test('NormDispIncr', 1e-6, 100, 1)
     ops.algorithm("KrylovNewton")
     ops.analysis("Static")
-    
+    testNorm = 1e-4
     # Analysis Loop
     for i in range(int(N)):
         print('Step:', i+1)
@@ -493,12 +493,17 @@ def ramp_dispcontrol(model, node, dof, N, dt, *cases):
                 ops.algorithm("NewtonLineSearch")
                 ops.test('NormDispIncr', 1e-4, 10, 1)
                 ok = ops.analyze(1)
-                ops.test('NormDispIncr', 1e-5, 10, 1)
-                ops.algorithm("KrylovNewton")
+                # ops.test('NormDispIncr', 1e-5, 10, 1)
+                # ops.algorithm("KrylovNewton")
                 print(ok)
                 if ok != 0:
-                    print(ops.testNorm())
-                    break
+                    testNorm = testNorm * 2
+                    ops.test('NormDispIncr', testNorm, 10, 1)
+                    ok = ops.analyze(1)
+                    print(ok)
+                    if ok != 0:
+                        print(ops.testNorm())
+                        break
     
     # Cleanup
     ops.remove('timeSeries', 1)
@@ -509,66 +514,74 @@ def ramp_dispcontrol(model, node, dof, N, dt, *cases):
     ops.reset()
     
     
+def hysteresis(model, node, dof, disps, *cases):
+    
+    steps = 20
+    
+    tag = model.get_node_tag(node)
+    disps = [float(x) for x in disps.split(';')]
+    dofs = {'X':1, 'Y':2, 'Z':3}
+    dof = dofs[dof]
+    
+    gravity(model, record=False)
+    
+    print('Disp control analysis...')
+    
+    # Load Pattern
+    ops.timeSeries('Linear', 2)
+    ops.pattern('Plain', 2, 2)
+    for case in cases:
+        model.apply_nodal_loads(case)
+    
+    # Recorders
+    model.apply_recorders(model.active_case)
+    ops.record()
+    
+    # Analysis Options
+    ops.system("UmfPack")
+    ops.numberer("Plain")
+    ops.constraints("Transformation")
+    # ops.constraints("Lagrange", 1e6, 1e6)
+    dt = disps[0]/50
+    ops.integrator("DisplacementControl", tag, dof, dt)
+    ops.test('NormDispIncr', 1e-6, 100, 1 ) # Will be overwritten later
+    ops.algorithm("NewtonLineSearch")
+    ops.analysis("Static")
     
     
     
-# def hysteresis(model, node, dof, disps, *cases):
-    
-#     tag = model.get_node_tag(node)
-#     disps = [float(x) for x in disps.split(';')]
-#     dofs = {'X':1, 'Y':2, 'Z':3}
-#     dof = dofs[dof]
-    
-    
-#     gravity(model, record=False)
-    
-#     print('Disp control analysis...')
-#     # Loads
-#     ops.timeSeries('Linear', 2)
-#     ops.pattern('Plain', 2, 2)
-#     for case in cases:
-#         model.apply_nodal_loads(case)
-    
-#     # Recorders
-#     model.apply_recorders(model.active_case)
-#     ops.record()
-    
-#     # Analysis Options
-#     ops.system("UmfPack")
-#     ops.numberer("Plain")
-#     # ops.constraints("Transformation")
-#     ops.constraints("Lagrange", 1e6, 1e6)
-#     dt = disps[0]/50
-#     ops.integrator("DispControl", tag, dof, dt)
-#     ops.test('EnergyIncr', 1e-8, 200, 1)
-#     ops.algorithm("KrylovNewton")
-#     ops.analysis("Static")
-    
-#     # Analysis Loop
-#     for disp in disps:
-#         dt = disp/50
-#         ops.integrator("DispControl", dt, 1)
-#         ok = ops.analyze(50)
+    # Analysis Loop
+    for disp in disps:
         
-#         print(disp, ops.nodeDisp(model.get_node_tag('F11_center')))
-#         sumForces()
         
-#         ops.integrator("LoadControl", -dt, 1)
-#         ok = ops.analyze(100)
+        testNorm = 1e-6
+        dt = 0.1
+        steps = int(disp/dt)
         
-#         print(-disp, ops.nodeDisp(model.get_node_tag('F11_center')))
-#         sumForces()
+        print('\nStarting +/-{} in. over 4x{} steps...'.format(disp, steps))
         
-#         ops.integrator("LoadControl", dt, 1)
-#         ok = ops.analyze(50)
+        ops.integrator("DisplacementControl", tag, dof, dt)
+        _analyze_iterative_tolerance('NormDispIncr',  N=steps, testNorm=testNorm, testIter=25, pFlag=1)
+        
+        print('Max. displacement at', node, '\n  Intended:', disp, dof, '\n  Actual:', ops.nodeDisp(model.get_node_tag(node)))
+        sumForces()
+        
+        ops.integrator("DisplacementControl", tag, dof, -dt)
+        _analyze_iterative_tolerance('NormDispIncr',  N=2*steps, testNorm=testNorm, testIter=25, pFlag=1)
+        
+        print(-disp, ops.nodeDisp(model.get_node_tag(node)))
+        sumForces()
+        
+        ops.integrator("DisplacementControl", tag, dof, dt)
+        _analyze_iterative_tolerance('NormDispIncr',  N=steps, testNorm=testNorm, testIter=25, pFlag=1)
     
-#     # Cleanup
-#     ops.remove('timeSeries', 1)
-#     ops.remove('loadPattern', 1)
-#     ops.remove('timeSeries', 2)
-#     ops.remove('loadPattern', 2)
-#     ops.wipeAnalysis()
-#     ops.reset()
+    # Cleanup
+    ops.remove('timeSeries', 1)
+    ops.remove('loadPattern', 1)
+    ops.remove('timeSeries', 2)
+    ops.remove('loadPattern', 2)
+    ops.wipeAnalysis()
+    ops.reset()
     
 def initial_stiffness(model, dof, *cases):
     
@@ -733,3 +746,22 @@ def eq3DOF(model, filename, dt, N):
     ops.remove('recorders')
     ops.wipeAnalysis()
     ops.reset()
+
+def _analyze_iterative_tolerance(test,  N=1, testNorm=1e-6, testIter=100, pFlag=0):
+    
+    ops.test(test, testNorm, testIter, pFlag)
+    for i in range(N):
+        ok = ops.analyze(1)
+        
+        if ok != 0:
+            print('Test failed: Norm = {}'.format(ops.testNorm()[-1]))
+            print("Trying Krylov".format(i+1, 2*testNorm))
+            ops.algorithm("KrylovNewton")
+            ok = ops.analyze(1)
+            
+            if ok != 0:
+                print('Test failed: Norm = {}'.format(ops.testNorm()[-1]))
+                print("Tolerance increased - Step: {} New Tolerance: {}".format(i+1, 2*testNorm))
+                ok = _analyze_iterative_tolerance(test,  N, testNorm*2, testIter, pFlag)
+    
+    return ok

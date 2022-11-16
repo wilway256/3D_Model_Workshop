@@ -23,7 +23,7 @@ out_dir, out_folder = make_output_directory()
 # %% Import Data
 print('Starting Import')
 start = default_timer()
-model_filename = 'Model_Builder.xlsm'
+model_filename = 'Model_no gravity framing.xlsm'
 model = Model(model_filename)
 save_input_file(model_filename, out_folder)
 model.out_dir = out_dir
@@ -50,7 +50,7 @@ print('Model Built', default_timer() - start)
 # ops.printModel('-file', model_filename.split('.')[0] + '.txt')
 
 # %% Eigenvalue Analysis
-model.rayleigh_damping(0.05, (1, 9))
+model.rayleigh_damping(0.02, (1, 9))
 
 print('Eigen', default_timer() - start)
 # %% Loop through Each Load Case

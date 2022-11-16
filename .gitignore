@@ -24,3 +24,4 @@ src/nodes_and_weights.xlsx
 docs/Modeling Parameters 4-11-2022 Wichman WR comments.xlsx
 __pycache__/
 *.pyc
+*.pyc
