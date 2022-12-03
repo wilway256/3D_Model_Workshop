@@ -543,8 +543,10 @@ def hysteresis(model, node, dof, disps, *cases):
     ops.constraints("Transformation")
     # ops.constraints("Lagrange", 1e6, 1e6)
     dt = disps[0]/50
+    print('dt = {}'.format(dt))
     ops.integrator("DisplacementControl", tag, dof, dt)
     ops.test('NormDispIncr', 1e-6, 100, 1 ) # Will be overwritten later
+    # ops.algorithm("NewtonLineSearch")
     ops.algorithm("NewtonLineSearch")
     ops.analysis("Static")
     

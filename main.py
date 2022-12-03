@@ -23,7 +23,7 @@ out_dir, out_folder = make_output_directory()
 # %% Import Data
 print('Starting Import')
 start = default_timer()
-model_filename = 'Model_no gravity framing.xlsm'
+model_filename = 'Model_Builder.xlsm'
 model = Model(model_filename)
 save_input_file(model_filename, out_folder)
 model.out_dir = out_dir
