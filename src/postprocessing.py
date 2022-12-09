@@ -306,10 +306,11 @@ class Recorder():
     
     def __init__(self, path, db=None, remove_blanks=False):
         self.path = path
+        self.dir = '\\'.join(re.split(r'\\|/', self.path)[:-1])
         self.nodes = {}
         self.df, self.hierarchy, self.info = self.xml_to_df(path, db=db, remove_blanks=remove_blanks)
         self.tags = list(self.hierarchy.keys())
-        
+        self.loadcase = re.split(r'\\|/', self.path)[-2] # Assumes folder has analysis title
         
         # Can't subclass DataFrame
         self.columns = self.df.columns
@@ -429,8 +430,54 @@ class Recorder():
         newdf = self.loc[:, cols]
         return newdf
 
-def NodeRecorder(Recorder):
-    pass
+class NodeDispRecorder(Recorder):
+    
+    def drift(self, node, dof):
+        
+        direction = {'X': ' D1', 'Y':' D2'}
+        time = self.df['time']
+        profile = {} # dictionary of floors and max drifts
+        
+        for floor in range(2, 12):
+            # Upper floor displacement history and height
+            nodeUIDi = node[0] + str(floor) + node[1]
+            dispi = np.array(self.df[nodeUIDi + direction[dof]])
+            zi = self.info.loc[nodeUIDi, 'Z']
+            
+            # Lower floor displacement history and height
+            try:
+                nodeUIDj = node[0] + str(floor-1) + node[1]
+                dispj = np.array(self.df[nodeUIDj + direction[dof]])
+                zj = self.info.loc[nodeUIDj, 'Z']
+            except:
+                dispj = np.zeros(dispi.shape)
+                zj = 0
+            
+            # Calculate drift and save to dict
+            drift = (dispi - dispj) / (zi - zj)
+            profile[floor] = max(abs(drift))
+        
+        return profile
+    
+    def drift_plot(self, node, dof):
+        
+        drift_profile = self.drift(node, dof)
+        
+        # Create figure
+        fig, ax = plt.subplots(figsize=(4, 8))
+        # ax.grid(True)
+        bar_index = np.arange(len(drift_profile))
+        bar_values = [value*100 for value in drift_profile.values()]
+        bar_floors = list(drift_profile.keys())
+        ax.barh(bar_index, bar_values, tick_label=bar_floors)
+        for i, drift in enumerate(bar_values):
+            ax.text(min(bar_values)/2, i, '{:.2f}%'.format(drift), ha='center', va='center', color='white')
+        
+        ax.set_xlabel('Drift (%)')
+        ax.set_ylabel('Floor')
+        ax.set_title(self.loadcase)
+        
+        return fig
 
 def tags_to_names(path):
     '''

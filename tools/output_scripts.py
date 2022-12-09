@@ -9,9 +9,14 @@ Description:
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from Model_10_Story import __path__
 import Model_10_Story.src.postprocessing as post
 import numpy as np
 import pandas as pd
+
+
+# For ease, set default path.
+_default_out_dir = __path__[0] + '/out'
 
 
 def base_moment(analysisID, case):#, pairs_of_columns):
@@ -38,63 +43,78 @@ def base_moment(analysisID, case):#, pairs_of_columns):
     
     return moment, disp
 
-def wall_drift(analysisID, case):
+def wall_drift(analysisID, case, out_dir=_default_out_dir):
+    '''
+    Creates plot of drifts for the walls in their in-plane directions. One plot
+    for each primary direction (X and Y). (Out-of_plane plots were considered
+    but did not convey much ue to rigid diaphragm constraint.) Plots are saved
+    in the same directory as the source file.
+    '''
     
-    path = 'C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/' + analysisID + '/' + case
+    path = _default_out_dir + '/' + analysisID + '/' + case
+    filename = 'wall_disp'
+    disp_recorder = post.NodeDispRecorder(path + '\\' + filename +'.xml')
     
-    moment = post.Recorder(path + '/wall_base_forces.xml')
-    disp = post.Recorder(path + '/wall_disp.xml')
+    # Iterables
+    walls = [[['F', 'ACLT'], ['F', 'CCLT']],
+             [['F', 'MPP1'], ['F', 'MPP4']]]
+    dofs = 'XY'
+    styles = ['o:', 'o:']
+    titles = ['East-West', 'North-South']
+    legends = [['North CLT', 'South CLT'], ['West MPP', 'East MPP']]
+    
+    # Plot drift
+    # Drift is only plotted in the primary direction of each wall because the
+    # out-of-plane drifts of each wall tends to be the average of the in-plane
+    # walls.
+    fig, ax = plt.subplots(1, 2, figsize=(6.5, 5))
+    
+    for i, (nodes, dof) in enumerate(zip(walls, dofs)):
+        
+        for node, style in zip(nodes, styles):
+            
+            drift_profile = disp_recorder.drift(node, dof)
+            drifts = [value*100 for value in drift_profile.values()]
+            floors = list(drift_profile.keys())
+            print(node, drifts)
+            ax[i].plot(drifts, floors, style, linewidth=2.0)
+        
+    # Formatting
+        ax[i].grid(True)
+        ax[i].set_title(titles[i])
+        ax[i].legend(legends[i])
+        upper = ax[i].get_xlim()[1]
+        upper = mround(upper, 0.5)
+        upper = ax[i].set_xlim([0.0, upper])
+        ax[i].set_ylim([1.5, 11.5])
+        ax[i].set_yticks(floors)
+        
+    ax[0].set_ylabel('Floor')
+    fig.suptitle(disp_recorder.loadcase)
+    fig.supxlabel('Drift (%)')
+    fig.savefig(disp_recorder.dir + '\\wallDisp.png')
+    
+def mround(number, multiple):
+    number = multiple * np.ceil(number / multiple)
+    return number
 
 if __name__ == '__main__':
     
     # %% Drift
-    analysisID = '6 EQ xy'
-    case = ['02_ChiChi_43', '08_Tohoku_225', '15_Tokachi_475', '25_Ferndale_MCE'][2]
-    path = 'C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/' + analysisID + '/' + case
+    analysisID = '16 Victoria'#'6 EQ xy'
+    case = ['02_ChiChi_43', '08_Tohoku_225', '15_Tokachi_475', '16_Victoria_975', '25_Ferndale_MCE'][-2]
+    # # path = 'C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/' + analysisID + '/' + case
+    # path = 'D:\\Users\\wfros\\Documents\\Will\\College\\Code Workshop\\Model_10_Story/out/' + analysisID + '/' + case
+    # path = _default_out_dir + analysisID + '/' + case
+    # filename = 'center_disp'
+    # node = ['F', '_center']
+    # dof = 'X'
+    
+    # wall_drift(analysisID, case)
     
     
-    filename = 'center_disp'
-    node = ['F', '_center']
-    dof = 'X'
     
-    disp_recorder = post.Recorder(path + '/' + filename +'.xml')
-    direction = {'X': ' D1', 'Y':' D2'}
-    time = disp_recorder.df['time']
     
-    # plt.figure()
-    profile = {}
-    
-    for floor in range(2, 12):
-        nodeUIDi = node[0] + str(floor) + node[1]
-        dispi = np.array(disp_recorder.df[nodeUIDi + direction[dof]])
-        zi = disp_recorder.info.loc[nodeUIDi, 'Z']
-        
-        try:
-            nodeUIDj = node[0] + str(floor-1) + node[1]
-            dispj = np.array(disp_recorder.df[nodeUIDj + direction[dof]])
-            zj = disp_recorder.info.loc[nodeUIDj, 'Z']
-        except:
-            dispj = np.zeros(dispi.shape)
-            zj = 0
-        
-        drift = (dispi - dispj) / (zi - zj)
-        # plt.plot(time, drift)
-        
-        profile[floor] = max(abs(drift))
-    
-    fig, ax = plt.subplots(figsize=(4, 8))
-    # ax.grid(True)
-    bar_index = np.arange(len(profile))
-    bar_values = [value*100 for value in profile.values()]
-    # bar_strval = ['{:.2f}'.format(value) for value in bar_values]
-    bar_floors = list(profile.keys())
-    ax.barh(bar_index, bar_values, tick_label=bar_floors)
-    for i, drift in enumerate(bar_values):
-        ax.text(min(bar_values)/2, i, '{:.2f}%'.format(drift), ha='center', va='center', color='white')
-    
-    ax.set_xlabel('Drift (%)')
-    ax.set_ylabel('Floor')
-    ax.set_title(case)
     
     
     # %% Fourier
