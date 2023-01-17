@@ -131,15 +131,22 @@ def wall_drift_history(analysisID, case, split_node, dof, out_dir=_default_out_d
     # Title
     if title is None:
         title = split_node[1]
-    fig.fig.title(title)
+    fig.ax.set_title(title)
     
     # Filename
     if name is None:
         name = split_node[1]
-    name = name + '_drift_profile'
+    name = 'drift_profile_' + name
     
     fig.fig.savefig(disp_recorder.dir + '\\' + name + '.png')
-    
+
+def drift_four_walls(analysisID, case, out_dir=_default_out_dir):
+    nodes = [['F', 'ACLT'], ['F', 'CCLT'], ['F', 'MPP1'], ['F', 'MPP4']]
+    dofs = 'XXYY'
+    walls = ['North', 'South', 'West', 'East']
+    for split_node, dof, wall_name in zip(nodes, dofs, walls):
+        title = wall_name + ' Wall Drift History (' + dof + ')'
+        wall_drift_history(analysisID, case, split_node, dof, title=title, name=wall_name)
 
 def drift_history():
     pass
@@ -151,12 +158,17 @@ if __name__ == '__main__':
     analysisID = '16 Victoria'#'6 EQ xy'
     case = ['02_ChiChi_43', '08_Tohoku_225', '15_Tokachi_475', '16_Victoria_975', '25_Ferndale_MCE'][-2]
     
-    # Drift history
-    split_node = ['F', 'ACLT']
-    dof = 'X'
-    wall_drift_history(analysisID, case, split_node, dof)    
+    # # Drift history
+    # split_node = ['F', 'ACLT']
+    # dof = 'X'
+    # wall_drift_history(analysisID, case, split_node, dof)
     
-    # Drift Profile
+    # Drift history, four walls
+    drift_four_walls(analysisID, case)
+    
+    
+    
+    # # Drift Profile
     # wall_drift(analysisID, case)
     
     
