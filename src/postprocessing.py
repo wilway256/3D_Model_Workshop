@@ -455,13 +455,21 @@ class NodeDispRecorder(Recorder):
             
             # Calculate drift and save to dict
             drift = (dispi - dispj) / (zi - zj)
-            profile[floor] = max(abs(drift))
+            profile[floor] = drift
         
         return profile
     
-    def drift_plot(self, node, dof):
+    def max_drifts(self, node, dof):
         
         drift_profile = self.drift(node, dof)
+        for floor in drift_profile.keys():
+            drift_profile[floor] = max(abs(drift_profile[floor]))
+        
+        return drift_profile
+    
+    def drift_plot(self, node, dof):
+        
+        drift_profile = self.max_drifts(node, dof)
         
         # Create figure
         fig, ax = plt.subplots(figsize=(4, 8))
