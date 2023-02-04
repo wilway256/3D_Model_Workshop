@@ -296,24 +296,38 @@ if __name__ == '__main__':
             ['27 TallWoodEqs_MCE_Northridge', 0.01, 3, 'Northridge MCE'],
             ['28 TallWoodEqs_MCE_SuperstitionHills', 0.01, 2, 'Superstition Hills MCE']]
     
+    # # for item in [data[-4]]:
+    # #     ax = plot_gm3(*item)
+    # from response_spectrum import max_response, response_spectrum
+    
+    # # filename = '09 TallWoodEqs_225_4213_x.txt'
+    
+    
+    
     # for item in [data[-4]]:
-    #     ax = plot_gm3(*item)
-    from response_spectrum import max_response, response_spectrum
-    
-    # filename = '09 TallWoodEqs_225_4213_x.txt'
-    
-    
-    
-    for item in [data[-4]]:
         
-        filename = item[0] + '_x.txt'
-        dt = item[1]
+    #     filename = item[0] + '_x.txt'
+    #     dt = item[1]
         
-        with open(filename) as file:
-            accels = file.readlines()
-            for i, line in zip( range(len(accels)), accels):
-                accels[i] = float(line)
+    #     with open(filename) as file:
+    #         accels = file.readlines()
+    #         for i, line in zip( range(len(accels)), accels):
+    #             accels[i] = float(line)
         
         
-        a = max_response(1.0, accels, dt)
-        print(a)
+    #     a = max_response(1.0, accels, dt)
+    #     print(a)
+        
+    # %% Get PGA
+    for gm in data:
+        print(gm[-1])
+        for suffix in 'xyz'[0:gm[2]]:
+            filename = gm[0] + '_' + suffix + '.txt'
+            
+            pga = 0.0
+            with open(filename) as file:
+                accels = file.readlines()
+                for line in accels:
+                    pga = max(pga, abs(float(line)))
+            
+            print('    ' + suffix + ': {:}'.format(pga))
