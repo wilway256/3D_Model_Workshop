@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Active postprocessing script.
-This file is for the user to run batches of postprocessing functions. No other
-file should call this one. This will be used for generating quick output
-after calling main.py.
+# Active postprocessing script.
+# This file is for the user to run batches of postprocessing functions. No other
+# file should call this one. This will be used for generating quick output
+# after calling main.py.
 
 Created on Mon Nov 15 11:24:08 2021
 @author: wroser
 """
 
+import os
 import re
 import numpy as np
 import openseespy.opensees as ops
@@ -107,7 +108,6 @@ def plot_base_spring(model, name):
         
 
 # %% XML Parser
-import os
 import xml.etree.ElementTree as ET
 
 import pandas as pd
@@ -308,7 +308,7 @@ class Recorder():
         self.path = path
         self.dir = '\\'.join(re.split(r'\\|/', self.path)[:-1])
         self.nodes = {}
-        self.df, self.hierarchy, self.info = self.xml_to_df(path, db=db, remove_blanks=remove_blanks)
+        self.df, self.hierarchy, self.coord = self.xml_to_df(path, db=db, remove_blanks=remove_blanks)
         self.tags = list(self.hierarchy.keys())
         self.loadcase = re.split(r'\\|/', self.path)[-2] # Assumes folder has analysis title
         
@@ -328,6 +328,7 @@ class Recorder():
         '''
         
         # Get database for node and element names. Use tags if not available
+        db = self._load_db(db)
         use_names = False
         
         # Parse XML using xml.etree.ElementTree
@@ -365,7 +366,11 @@ class Recorder():
                     column_names.append(eleName + ' ' + element[response].text)
                     hierarchy[eleName].append(element[response].text)
                 
-                self.nodes[eleName] = [element.attrib['node1'], element.attrib['node2']]
+                inode = element.attrib['node1']
+                jnode = element.attrib['node2']
+                self.nodes[eleName] = [inode, jnode]
+                coord[inode] = list(db.node_coord(inode))
+                coord[jnode] = list(db.node_coord(jnode))
         
         coord = pd.DataFrame.from_dict(coord, orient='index', columns=['X', 'Y', 'Z'], dtype=float)
         # Get data table
@@ -429,6 +434,20 @@ class Recorder():
         cols = list(set(cols_uid) & set(cols_dof))#; print(cols)
         newdf = self.loc[:, cols]
         return newdf
+    
+    def _load_db(self, db):
+        if db == None:
+            db = Database(self.dir + '\\..\\Model_Builder.xlsm')
+            self.sourcefile = self.dir + '\\..\\Model_Builder.xlsm'
+            return db
+        elif type(db) == str:
+            db = Database(self.dir + '\\..\\' + db)
+            self.sourcefile = self.dir + '\\..\\' + db
+            return db
+        elif type(db) == Database:
+            return db
+        else:
+            raise TypeError
 
 class NodeDispRecorder(Recorder):
     
@@ -442,13 +461,13 @@ class NodeDispRecorder(Recorder):
             # Upper floor displacement history and height
             nodeUIDi = node[0] + str(floor) + node[1]
             dispi = np.array(self.df[nodeUIDi + direction[dof]])
-            zi = self.info.loc[nodeUIDi, 'Z']
+            zi = self.coord.loc[nodeUIDi, 'Z']
             
             # Lower floor displacement history and height
             try:
                 nodeUIDj = node[0] + str(floor-1) + node[1]
                 dispj = np.array(self.df[nodeUIDj + direction[dof]])
-                zj = self.info.loc[nodeUIDj, 'Z']
+                zj = self.coord.loc[nodeUIDj, 'Z']
             except:
                 dispj = np.zeros(dispi.shape)
                 zj = 0
@@ -487,23 +506,22 @@ class NodeDispRecorder(Recorder):
         
         return fig
 
-def tags_to_names(path):
+# class BaseSpringRecorder(Recorder):
+    
+
+# %% Output Tag to Name Conversion
+def tags_to_names(path, model=None):
     '''
     Converts integer tags to names in a text file.
 
     Parameters
     ----------
     path : str
-        DESCRIPTION.
-
-    Raises
-    ------
-    ValueError
-        DESCRIPTION.
+        Full path of xml file with tags to be converted to names.
 
     Returns
     -------
-    db : TYPE
+    db : Model_10_Story.src.excel_to_database.Database
         DESCRIPTION.
 
     '''
@@ -512,65 +530,71 @@ def tags_to_names(path):
     out_folder, analysisID = path.split('out/')
     out_folder += 'out/'
     analysisID = analysisID.split('/')[0]
-    try:
-        db = Database(out_folder + analysisID + '/Model_Builder.xlsm')
-    except:
-        print(out_folder + analysisID + '/Model_Builder.xlsm not found.')
-        print(os.listdir(out_folder + analysisID))
-        filename = input('Enter name of Excel file: ')
-        db = Database(out_folder + analysisID + '/' + filename)
+    if model == None:
+        model = out_folder + analysisID + '/Model_Builder.xlsm'
+        try:
+            db = Database(out_folder + analysisID + '/Model_Builder.xlsm')
+        except:
+            print(out_folder + analysisID + '/Model_Builder.xlsm not found.')
+            print(os.listdir(out_folder + analysisID))
+            filename = input('Enter name of Excel file: ')
+            db = Database(out_folder + analysisID + '/' + filename)
     
     # Convert xml to names
     with open(path, errors='ignore') as file:
         filedata = file.read()
+    dataA, dataB = filedata.split('<Data>') # Split header and data. MUCH faster.
+    # Also tried line by line regex. Not as fast unless a break statement at the
+    # end of the header makes line by line similar in speed to this method.
     
     # Find and replace: nodeTag="__" eletag="__" node1="_" node2="_"
-    
     for regex, case in zip(['nodeTag="\d+"', 'eleTag="\d+"', 'node1="\d+"', 'node2="\d+"'], ['node', 'ele', 'node', 'node']):
         # Find all instances that need to be replaced
-        target_strs = re.findall(regex, filedata)
+        target_strs = re.findall(regex, dataA)
         # For each instance, get tag then replace with name from Excel file
         for target in target_strs:
-            replace = int(re.findall('\d+', target)[0])
-            try:
-                if case == 'node':
-                    name = db.get_node_name(replace)
-                elif case == 'ele':
-                    name = db.get_ele_name(replace)
-                else:
-                    raise ValueError
-            except:
-                print(replace, case)
+            replace = int(re.findall('\d+', target)[-1])
+            if case == 'node':
+                name = db.get_node_name(replace)
+            elif case == 'ele':
+                name = db.get_ele_name(replace)
             before, after = regex.split('\d+')
             replace = before + name + after
-            filedata = re.sub(target, replace, filedata)
-            target = re.findall(regex, filedata)
+            dataA = re.sub(target, replace, dataA)
+            # # For debugging. Returns empty list if program is working.
+            # print(re.findall(regex, dataA))
     
     # # Uncomment to not overwrite original file
     # path = re.sub('\.xml', '_alt.xml', path)
         
     # Overwrite original file
     with open(path, 'w') as file:
-        file.write(filedata)
+        file.write(dataA + '<Data>' + dataB) # Recombine header and data
+    
     return db
 
 def output_preprocessing(outfolder):
     '''
     Walks through outfolder and changes integer tags to names in all xml recorders.
+    
     '''
-    for subdir, dirs, files in os.walk(outfolder): # dirs should be individual load cases
-        for subfolder in dirs:
-            for subdir, dirs, files in os.walk(outfolder + '/' + subfolder): # get files in folder
-                for file in files:
-                    if file.endswith('.xml'): # can corrupt other files
-                        print('Reading:', subfolder, file)
-                        tags_to_names(subdir + '/' + file)
+    outfolder = outfolder[:-1] if outfolder.endswith('/') else outfolder
+    load_cases = next(os.walk(outfolder))[1] # Returns subfolders in outfolder
+    for subfolder in load_cases:
+        path, dirs, files = next(os.walk(outfolder + '/' + subfolder)) # get files in folder
+        for file in files:
+            if file.endswith('.xml') and not file.endswith('_alt.xml'): # can corrupt other files
+                print('Reading:', path + '/' + file)
+                db = tags_to_names(path + '/' + file)
+    return db
 
 if __name__ == '__main__':
     pass
     
     # %% Script - change tags to names in xml file
-    # db = output_preprocessing('C:\\Users\\wroser\\Documents\\Code Workshop\\Model_10_Story/out/deleteme')
+    import Model_10_Story
+    module_path = Model_10_Story.__path__[0]
+    db = output_preprocessing(module_path + '/out/C')
     
     # %% Script
     # # results = Output('temp')

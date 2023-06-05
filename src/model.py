@@ -12,6 +12,7 @@ import openseespy.opensees as ops
 from math import pi
 import os
 from .excel_to_database import Database
+import logging
 
 
 # %% Definitions
@@ -344,7 +345,7 @@ class Model(Database):
             return 'ERROR'
         
     # @staticmethod
-    def rayleigh_damping(self, zeta, modes, highmode=False, printme=True):
+    def rayleigh_damping(self, zeta, modes, highmode=False):
         '''
         Add rayleigh damping to OpenSees model.
     
@@ -356,8 +357,6 @@ class Model(Database):
             Apply rayleigh damping factor at these two modes.
         highmode : integer
             Override for eigen(highmode). Use the higher of modes by default.
-        printme : TYPE, optional
-            Option to print table to console.
     
         Returns
         -------
@@ -390,19 +389,25 @@ class Model(Database):
         
         # Apply damping to model
         ops.rayleigh(a[0], 0, 0, a[1])
-
         
         # Print to console
-        print('\n')
-        print('{:^60}'.format('Modal Information'))
-        print('{:-^60}'.format(''))
-        print('{:>5}{:>13}{:>12}{:>10}{:>10}{:>10}'.format('Mode', 'w2', 'w', 'f', 'T', 'Damp.'))
-        print('{:>5}{:>13}{:>12}{:>10}{:>10}{:>10}'.format('', '[rad²/sec²]', '[rad/sec]', '[Hz]', '[sec]', 'Ratio'))
-        print('{:-^60}'.format(''))
+        eigen_data = {'w2':[], 'w':[], 'f':[], 'T':[], 'Damping Ratio':[]}
+        logging.info('{:^60}'.format('Modal Information'))
+        logging.info('{:-^60}'.format(''))
+        logging.info('{:>5}{:>13}{:>12}{:>10}{:>10}{:>10}'.format('Mode', 'w2', 'w', 'f', 'T', 'Damp.'))
+        logging.info('{:>5}{:>13}{:>12}{:>10}{:>10}{:>10}'.format('', '[rad²/sec²]', '[rad/sec]', '[Hz]', '[sec]', 'Ratio'))
+        logging.info('{:-^60}'.format(''))
         for i in range(len(w2)):
             h = a[0]/2/w[i] + a[1]*w[i]/2
-            print('{:5d}{:13.4g}{:12.2f}{:10.2f}{:10.2g}{:10.2%}'.format(i+1, w2[i], w[i], f[i], T[i], h))
-        print('\n')
+            logging.info('{:5d}{:13.4g}{:12.2f}{:10.2f}{:10.2g}{:10.2%}'.format(i+1, w2[i], w[i], f[i], T[i], h))
+            eigen_data['w2'].append(w2[i])
+            eigen_data['w'].append(w[i])
+            eigen_data['f'].append(f[i])
+            eigen_data['T'].append(T[i])
+            eigen_data['Damping Ratio'].append(h)
+        logging.info('\n')
+        
+        return eigen_data
     
     def apply_recorders(self, case):
         df = self.recorders

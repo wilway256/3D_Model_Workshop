@@ -43,8 +43,8 @@ def max_response(dt, accels, Tn, zeta=0.05, beta=1/4, gamma=0.5, g=386.4):
     
     N = len(accels)
     t = np.arange(0, dt*N, dt)
-    # nodeDisp = np.zeros(t.shape)
-    # nodeAccel = np.zeros(t.shape)
+    nodeDisp = np.zeros(t.shape)
+    nodeAccel = np.zeros(t.shape)
     
     umax = 0.0
     amax = 0.0
@@ -52,23 +52,71 @@ def max_response(dt, accels, Tn, zeta=0.05, beta=1/4, gamma=0.5, g=386.4):
     for i in range(N):
         ops.analyze(1, dt)
         # print('Floor', floor, ops.nodeDisp(i+1))
-        # nodeDisp[i] = ops.nodeDisp(2)[0]
-        # nodeAccel[i] = ops.nodeAccel(2)[0]
+        nodeDisp[i] = ops.nodeDisp(2)[0]
+        nodeAccel[i] = ops.nodeAccel(2)[0]
         umax = max(umax, abs(ops.nodeDisp(2)[0]))
         amax = max(amax, abs(ops.nodeAccel(2)[0]+accels[i]*g))
     
-    # # The following code snippet is for viewing the difference between absolute
-    # # acceleration, ground acceleration, and acceleration relative to the ground.
-    # # Very short period ground motions should have little acceleration relative
-    # # to the ground.
-    # fig, ax = plt.subplots(2, 1)
-    # plt.grid(visible=True)
-    # ax[0].plot(t, nodeDisp)
-    # ax[1].plot(t, nodeAccel)
-    # ax[1].plot(t[0:len(accels)], accels*g)
-    # ax[1].plot(t[0:len(accels)], accels*g+nodeAccel)
+    # The following code snippet is for viewing the difference between absolute
+    # acceleration, ground acceleration, and acceleration relative to the ground.
+    # Very short period ground motions should have little acceleration relative
+    # to the ground.
+    fig, ax = plt.subplots(2, 1)
+    plt.grid(visible=True)
+    ax[0].plot(t, nodeDisp)
+    ax[1].plot(t, nodeAccel, '--')
+    ax[1].plot(t[0:len(accels)], accels*g, '--')
+    ax[1].plot(t[0:len(accels)], accels*g+nodeAccel)
     
     return umax, amax
+
+def response_spectrum(dt, accels, Tn_start=0.01, Tn_end=3.0, N_Tn=250, spacing='log', figsize=(16, 9), damping_ratio=0.05, conversion=386.4, data_only=False):
+    
+    base = 5 # no effect
+    
+    if spacing == 'log':
+        Tns = np.logspace(np.log(Tn_start)/np.log(base), np.log(Tn_end)/np.log(base), N_Tn, base=base)
+    else:
+        Tns = np.linspace(Tn_start, Tn_end, N_Tn)
+        
+    u = np.zeros(Tns.shape)
+    a = np.zeros(Tns.shape)
+    
+    for i, Tn in enumerate(Tns):
+        u[i], a[i] = max_response(dt, accels, Tn, zeta=damping_ratio)
+    
+    # Add idealized rigid case (PGA)
+    Tns = np.insert(Tns, 0, 0.0)
+    u = np.insert(u, 0, 0.0)
+    a = np.insert(a, 0, max(np.abs(accels)))
+    
+    if data_only:
+        return Tns, a/conversion
+    
+    fig, ax = plt.subplots(2, 1, figsize=figsize, constrained_layout=True)
+    plt.grid(visible=True, which='major')
+    
+    ax[0].plot(Tns, u)
+    ax[1].plot(Tns, a/conversion)
+    
+    ax[0].set_ylabel('$S_{d}$ (in.)')
+    ax[1].set_ylabel('$S_{a}$ (g)')
+    ax[1].set_xlabel('Tn (sec.)')
+    
+    ax[0].set_xlim([0, Tn_end])
+    ax[1].set_xlim([0, Tn_end])
+    ax[0].set_ylim([0, ax[0].get_ylim()[1]])
+    ax[1].set_ylim([0, ax[1].get_ylim()[1]])
+    
+    ml = mpl.ticker.MultipleLocator(0.10)
+
+    ax[0].xaxis.set_minor_locator(ml)
+    
+    ax[0].xaxis.grid(which="minor", color='#999999', linestyle=':', linewidth=0.7)
+    ax[1].xaxis.set_minor_locator(ml)
+    ax[1].xaxis.grid(which="minor", color='#999999', linestyle=':', linewidth=0.7)
+    
+    return fig, ax
 
 if __name__ == "__main__":
     import Model_10_Story
@@ -92,7 +140,7 @@ if __name__ == "__main__":
             ['16 TallWoodEqs_975_268', 0.01, 3, 'Victoria 975-year'],
             ['19 TallWoodEqs_975_964', 0.01, 3, 'Northridge 975-year'],
             ['20 TallWoodEqs_975_CHBH041103111446', 0.01, 1, 'Tohoku 975-year'],
-            ['21 TallWoodEqs_975_HKD1270309260450', 0.01, 1, 'Tokachi-year'],
+            ['21 TallWoodEqs_975_HKD1270309260450', 0.01, 1, 'Tokachi 975-year'],
             ['22 TallWoodEqs_MCE_CHBH041103111446', 0.01, 1, 'Tohoku MCE'],
             ['23 TallWoodEqs_MCE_4228', 0.005, 3, 'Niigata MCE'],
             ['24 TallWoodEqs_MCE_761', 0.005, 3, 'Loma Prieta MCE'],
@@ -101,69 +149,97 @@ if __name__ == "__main__":
             ['27 TallWoodEqs_MCE_Northridge', 0.01, 3, 'Northridge MCE'],
             ['28 TallWoodEqs_MCE_SuperstitionHills', 0.01, 2, 'Superstition Hills MCE']]
     
-    for eq in data:
-        for xyz in 'xyz'[0:eq[2]]:
-            dt = eq[1]
+    # # %% Spectrum
+    # for eq in data:
+    #     for xyz in 'xyz'[0:eq[2]]:
+    #         dt = eq[1]
             
-            filename = eq[0] + '_' + xyz + '.txt'
-            with open(folder + filename) as file:
-                accels = file.readlines()
-                for i, line in zip( range(len(accels)), accels):
-                    accels[i] = float(line)
-            accels = np.array(accels)
+    #         filename = eq[0] + '_' + xyz + '.txt'
+    #         with open(folder + filename) as file:
+    #             accels = file.readlines()
+    #             for i, line in zip( range(len(accels)), accels):
+    #                 accels[i] = float(line)
+    #         accels = np.array(accels)
             
-            # # Constant acceleration for testing.
-            # accels = [1]*2000
-            # accels = np.append(np.linspace(0,1,500), np.array(accels))*386.4
+    #         # # Constant acceleration for testing.
+    #         # accels = [1]*2000
+    #         # accels = np.append(np.linspace(0,1,500), np.array(accels))*386.4
             
-            # # Harmonic acceleration for testing.
-            # accels = np.sin(np.linspace(0.0, 50, 10000)*np.pi*2/1.0)
-            # # accels = np.append(np.array(accels), np.zeros((1000)))*386.4
+    #         # # Harmonic acceleration for testing.
+    #         # accels = np.sin(np.linspace(0.0, 50, 10000)*np.pi*2/1.0)
+    #         # # accels = np.append(np.array(accels), np.zeros((1000)))*386.4
             
-            # Periods. Select linear or log spaced values
-            start = 0.01
-            stop = 3.0
-            N = 250
-            base = 5 # no effect
+    #         # Periods. Select linear or log spaced values
+    #         start = 0.01
+    #         stop = 3.0
+    #         N = 250
+    #         base = 5 # no effect
             
-            #Tns = np.linspace(start, stop, N)
+    #         #Tns = np.linspace(start, stop, N)
             
-            Tns = np.logspace(np.log(start)/np.log(base), np.log(stop)/np.log(base), N, base=base)
+    #         Tns = np.logspace(np.log(start)/np.log(base), np.log(stop)/np.log(base), N, base=base)
             
             
-            u = np.zeros(Tns.shape)
-            a = np.zeros(Tns.shape)
+    #         u = np.zeros(Tns.shape)
+    #         a = np.zeros(Tns.shape)
             
-            for i, Tn in enumerate(Tns):
-                u[i], a[i] = max_response(dt, accels, Tn)
+    #         for i, Tn in enumerate(Tns):
+    #             u[i], a[i] = max_response(dt, accels, Tn)
             
-            # mpl.rcParams.update({"axes.grid" : True})
+    #         # mpl.rcParams.update({"axes.grid" : True})
             
-            fig, ax = plt.subplots(2, 1, figsize=(16, 9))
-            plt.grid(visible=True, which='major')
-            # plt.minorticks_on()
-            ax[0].plot(Tns, u)
-            ax[1].plot(Tns, a/32.2/12)
+    #         fig, ax = plt.subplots(2, 1, figsize=(16, 9))
+    #         plt.grid(visible=True, which='major')
+    #         # plt.minorticks_on()
+    #         ax[0].plot(Tns, u)
+    #         ax[1].plot(Tns, a/32.2/12)
             
-            ax[0].set_ylabel('$S_{d}$ (in.)')
-            ax[1].set_ylabel('$S_{a}$ (g)')
-            ax[1].set_xlabel('Tn (sec.)')
+    #         ax[0].set_ylabel('$S_{d}$ (in.)')
+    #         ax[1].set_ylabel('$S_{a}$ (g)')
+    #         ax[1].set_xlabel('Tn (sec.)')
             
-            ax[0].set_xlim([0, stop])
-            ax[1].set_xlim([0, stop])
-            ax[0].set_ylim([0, ax[0].get_ylim()[1]])
-            ax[1].set_ylim([0, ax[1].get_ylim()[1]])
+    #         ax[0].set_xlim([0, stop])
+    #         ax[1].set_xlim([0, stop])
+    #         ax[0].set_ylim([0, ax[0].get_ylim()[1]])
+    #         ax[1].set_ylim([0, ax[1].get_ylim()[1]])
             
-            ml = mpl.ticker.MultipleLocator(0.10)
+    #         ml = mpl.ticker.MultipleLocator(0.10)
         
-            ax[0].xaxis.set_minor_locator(ml)
+    #         ax[0].xaxis.set_minor_locator(ml)
             
-            ax[0].xaxis.grid(which="minor", color='#999999', linestyle=':', linewidth=0.7)
-            ax[1].xaxis.set_minor_locator(ml)
-            ax[1].xaxis.grid(which="minor", color='#999999', linestyle=':', linewidth=0.7)
+    #         ax[0].xaxis.grid(which="minor", color='#999999', linestyle=':', linewidth=0.7)
+    #         ax[1].xaxis.set_minor_locator(ml)
+    #         ax[1].xaxis.grid(which="minor", color='#999999', linestyle=':', linewidth=0.7)
             
-            figname = eq[3] + ' ' + xyz.upper()
-            fig.suptitle(figname)
+    #         figname = eq[3] + ' ' + xyz.upper()
+    #         fig.suptitle(figname)
             
-            fig.savefig(filename[0:2] + 'S ' + figname + '.png')
-            plt.close()
+    #         fig.savefig(filename[0:2] + 'S ' + figname + '.png')
+    #         plt.close()
+    
+    
+    # %% Time History
+    eq = data[15]
+    xyz = 'xyz'[0]
+    dt = eq[1]
+    
+    filename = eq[0] + '_' + xyz + '.txt'
+    with open(folder + filename) as file:
+        accels = file.readlines()
+        for i, line in zip( range(len(accels)), accels):
+            accels[i] = float(line)
+    accels = np.array(accels)
+    
+    # # Constant acceleration for testing.
+    # accels = [1]*2000
+    # accels = np.append(np.linspace(0,1,500), np.array(accels))*386.4
+    
+    # # Harmonic acceleration for testing.
+    # accels = np.sin(np.linspace(0.0, 50, 10000)*np.pi*2/1.0)
+    # # accels = np.append(np.array(accels), np.zeros((1000)))*386.4
+    
+    
+    Tn = 1.4
+    
+    u, a = max_response(dt, accels, Tn)
+    

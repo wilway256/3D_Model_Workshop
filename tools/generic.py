@@ -13,7 +13,7 @@ import numpy as np
 import tkinter as tk
 from tkinter import filedialog as fd
 import pandas as pd
-
+import logging
 
 
 def select_file(message='Select Files'):
@@ -136,7 +136,7 @@ class Offset_Plot():
             raise TypeError('Input must be integer (creates blank array) or numpy array.')
             
         self.x = x
-        self.fig, self.ax = plt.subplots(1, 1, figsize=(6.5, 9), sharex=True)
+        self.fig, self.ax = plt.subplots(1, 1, figsize=(6.5, 9), sharex=True, constrained_layout=True)
         # self.resize(lbwh, overlap)
     
     # def resize(self, lbwh, overlap=1.0):
@@ -179,7 +179,7 @@ class Offset_Plot():
         self.ax.minorticks_on()
         # ax.tick_params(axis='x', which='minor')
         
-        self.ax.grid(which='major')
+        self.ax.grid(visible=True, which='major')
         minor_locator = mpl.ticker.AutoMinorLocator(self.minordiv)
         self.ax.yaxis.set_minor_locator(minor_locator)
         self.ax.grid(which='minor', linestyle=':')
@@ -189,7 +189,39 @@ class Offset_Plot():
         if len(xlim) == 2:
             self.ax.set_xlim(xlim)
     
+# Custom formatter for logging module
+class MyFormatter(logging.Formatter):
+    '''
+    Allows each level of the logging module to have a different format.
+    Source: https://stackoverflow.com/questions/14844970/modifying-logging-message-format-based-on-message-logging-level-in-python3
+    '''
+    err_fmt  = "ERROR: %(module)s: Line %(lineno)d: %(message)s"
+    dbg_fmt  = "%(asctime)s %(message)s"
 
+    def __init__(self):
+        super().__init__(fmt="%(levelno)d: %(msg)s", datefmt=None, style='%')  
+    
+    def format(self, record):
+
+        # Save the original format configured by the user
+        # when the logger formatter was instantiated
+        format_orig = self._style._fmt
+
+        # Replace the original format with one customized by logging level
+        if record.levelno == logging.DEBUG:
+            self._style._fmt = MyFormatter.dbg_fmt
+
+        elif record.levelno == logging.ERROR:
+            self._style._fmt = MyFormatter.err_fmt
+
+        # Call the original formatter class to do the grunt work
+        result = logging.Formatter.format(self, record)
+
+        # Restore the original format configured by the user
+        self._style._fmt = format_orig
+
+        return result
+    
 # t = np.linspace(0, 5)
 # x = 4*np.cos(t)
 # y = np.sin(t)

@@ -696,6 +696,8 @@ def eq3DOF(model, filename, dt, N):
     
     print('Earthquake analysis' + filename + '...')
     
+    data = {'dt':float(dt), 'Duration':float(dt)*int(N), 'GM Files':[], 'directions':[]}
+    
     # Ground motion
     dt = float(dt)
     N = int(N)
@@ -707,6 +709,8 @@ def eq3DOF(model, filename, dt, N):
     
     for i in range(3):
         path = 'gm\\' + filename + '_' + suffix[i] + '.txt'
+        data['GM Files'].append(path)
+        data['directions'].append(dof[i])
         print(path, dt, i+2)
         ops.timeSeries('Path', i + 2, '-dt', dt, '-filePath', path, '-factor', 32.2*12)
         ops.pattern('UniformExcitation', i + 2, dofs[dof[i]], '-accel', i + 2)
@@ -748,6 +752,8 @@ def eq3DOF(model, filename, dt, N):
     ops.remove('recorders')
     ops.wipeAnalysis()
     ops.reset()
+    
+    return data
 
 def _analyze_iterative_tolerance(test,  N=1, testNorm=1e-6, testIter=100, pFlag=0):
     
