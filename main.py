@@ -5,188 +5,135 @@ Created on Mon Nov 15 10:44:00 2021
 @author: wroser
 """
 
-from timeit import default_timer
-from time import strftime, gmtime
-# from math import sqrt, pi
-from src.model import Model
+# %% User input
+# To do: make these command line arguments
+model_filename = 'Model_Builder.xlsm'
+print_model = False
+zeta_i = 0.02
+zeta_j = None
+iMode = 1
+jMode = 9
+
+# %% Imports
+# Python Standard Libraries
+from timeit import default_timer # accurate way to measure time elapsed in seconds
+from time import localtime, strftime # for logging date and time when program is run
+from datetime import timedelta # for logging amount of time program takes to run
+import logging # saves runtime information to file
+from os import getlogin # for logging username
+from sys import stdout # for logging
+# Other External Libraries
 import openseespy.opensees as ops
-# from src.excel_to_database import Database
+# Imports from this project
+from src.model import Model
 from src.bookkeeping import make_output_directory, save_input_file
 import src.analysis as analysis
 
 
+# %% Initialization
+# Make sure no OpenSees model is loaded.
 ops.wipe()
 
-# %% Create Output Directory
+# Create Output Directory
 out_dir, out_folder = make_output_directory()
 
-# %% Import Data
-print('Starting Import')
+# Log Files
+save_variables = {'Metadata':{}, 'Eigen':{}, 'Time':{}, 'Analysis':{}}
+logfile = out_dir + 'log.txt'
+logging.basicConfig(filename=logfile, format='%(message)s', level=logging.INFO)
+logger = logging.getLogger()
+logger.addHandler(logging.StreamHandler(stdout)) # Prints to file and to console. Source: https://stackoverflow.com/questions/13733552/logger-configuration-to-log-to-file-and-print-to-stdout
 start = default_timer()
-model_filename = 'Model_Builder.xlsm'
+def log(string):
+    global start
+    # print(default_timer(), start)
+    logging.info(str(timedelta(seconds=default_timer() - start)) + ' - ' + string + '\n')
+
+log('Program Start\n    ' + strftime('(%a) %Y-%b-%d %H:%M', localtime()) + '\n    by ' + getlogin())
+save_variables['Metadata']['Username'] = getlogin()
+save_variables['Metadata']['Date'] = strftime('%Y-%b-%d', localtime())
+save_variables['Metadata']['Time'] = strftime('%H:%M', localtime())
+
+
+# %% Import Data from Excel
+log('Starting Import')
+
 model = Model(model_filename)
 save_input_file(model_filename, out_folder)
+save_variables['Metadata']['Model Filename'] = model_filename
+save_variables['Metadata']['Model Path'] = out_folder + model_filename
 model.out_dir = out_dir
-ops.logFile(out_dir + 'log.txt', '-noEcho') # Must restart kernel if this is active.
+ops.logFile(out_dir + 'opensees_log.txt', '-noEcho') # Must restart kernel when activating/deactivating this option.
 
-# %% Define Structure
-print('Defining Structure ' + strftime('%H:%M:%S', gmtime(default_timer() - start)))
+
+# %% Create OpenSees Model
+log('Defining Structure')
 
 model.define_nodes()
-
 model.fix_nodes()
-
 model.assign_node_mass()
-
 model.make_diaphragm_constraints()
-
 model.define_transformations()
-
 model.make_elements(rigidLinkConstraint=False)
 
-print('Model Built', default_timer() - start)
+log('Model Built')
+save_variables['Time']['Load Model'] = default_timer() - start
+
 
 # %% PrintModel
-# ops.printModel('-file', model_filename.split('.')[0] + '.txt')
+# (for debugging)
+if print_model:
+    ops.printModel('-file', model_filename.split('.')[0] + '.txt')
+
 
 # %% Eigenvalue Analysis
-model.rayleigh_damping(0.02, (1, 9))
+log('Starting Eigenvalue Analysis')
+if zeta_j == None:
+    zeta = zeta_i
+else:
+    zeta = (zeta_i, zeta_j)
+save_variables['Eigen'] = model.rayleigh_damping(zeta, (iMode, jMode))
+save_variables['Time']['Eigen Analysis'] = default_timer() - save_variables['Time']['Load Model']
 
-print('Eigen', default_timer() - start)
+
 # %% Loop through Each Load Case
-print('{:<50s}{:>50s}'.format("Analysis Loop",
-                              strftime('%H:%M:%S', gmtime(default_timer() - start))))
+log('Starting Analysis Loop')
 
+# Loop through selected load cases in Excel file
 loadCases = model.loadCase.query('Run == "Y"')
 
 for case, function_name in zip(loadCases.index, loadCases.Command):
-    print('\n== Starting New Load Case: ' + case + ' ==' + strftime('%H:%M:%S', gmtime(default_timer() - start)))
-    ops.start() # Prints time to log file
+    log('Starting New Load Case: ' + case)
+    ops.start() # Prints time to OpenSees log file
     
     # Run analysis commands
     model.active_case = case
     analysis_script = getattr(analysis, function_name)
     args = str(loadCases.loc[case, 'Arguments']).split(', '); print(args)
-    analysis_script(model, *args)
+    save_variables['Analysis'][case] = analysis_script(model, *args)
     ops.stop()
-    
-    
-#-------------------------------------------------
-# Loads
-# ops.timeSeries('Constant', 1)
-# ops.pattern('Plain', 1, 1)
-# model.apply_nodal_loads('gravity')
 
-# # Analysis
-# ops.system("UmfPack")
-# ops.numberer("AMD")
-# ops.constraints("Transformation")
-# ops.integrator("LoadControl", 1, 1)
-# ops.test('EnergyIncr', 1e-20, 200, 1)
-# ops.algorithm("KrylovNewton")
-# ops.analysis("Static")
-# ops.analyze(1)
-
-# # Cleanup
-# ops.setTime(0.0)
+log('Out of Loop\n')
+save_variables['Time']['Runtime'] = default_timer() - start
 
 
-# # Ground motion
-# dt = 0.01
-# path = r'gm\28 TallWoodEqs_MCE_SuperstitionHills_x.txt'
-# dof = 'X'
-# N = 200
-
-# dofs = {'X':1, 'Y':2, 'Z':3}
-# dof = dofs[dof]
-
-# ops.timeSeries('Path', 2, '-dt', dt, '-filePath', path, '-factor', 32.2*12)
-# ops.pattern('UniformExcitation', 2, dof, '-accel', 2)
-
-
-# # dt = 0.01
-# path = r'gm\28 TallWoodEqs_MCE_SuperstitionHills_y.txt'
-# dof = 'Y'
-# # N = 2300
-
-# dofs = {'X':1, 'Y':2, 'Z':3}
-# dof = dofs[dof]
-
-# ops.timeSeries('Path', 3, '-dt', dt, '-filePath', path, '-factor', 32.2*12)
-# ops.pattern('UniformExcitation', 3, dof, '-accel', 3)
-
-
-# # dt = 0.01
-# path = r'gm\28 TallWoodEqs_MCE_SuperstitionHills_z.txt'
-# dof = 'Z'
-# # N = 5000
-
-# dofs = {'X':1, 'Y':2, 'Z':3}
-# dof = dofs[dof]
-
-# ops.timeSeries('Path', 4, '-dt', dt, '-filePath', path, '-factor', 32.2*12)
-# ops.pattern('UniformExcitation', 4, dof, '-accel', 4)
-
-
-
-# # Recorders
-# model.apply_recorders('EQ1')
-# ops.record()
-
-# # Analysis Options
-# ops.wipeAnalysis()
-
-# ops.system("UmfPack")
-# ops.numberer("AMD")
-# ops.constraints("Transformation")
-
-# ops.test('NormDispIncr', 1e-10, 100, 2)
-# ops.algorithm("KrylovNewton")
-# ops.integrator('Newmark', 0.5, 0.25)
-# ops.analysis("Transient")
-
-# # Analysis Loop
-# for i in range(int(N)):
-#     if (i+1)%100 == 0:
-#         print("Step: ", i+1)
-#     ok = ops.analyze(1, dt)
-    
-#     if ok != 0:
-    
-#         # ops.test('NormDispIncr', 1e-5, 10, 1)
-    
-#         # ok = ops.analyze(1)
-#         # print(ok)
-#         # if ok !=0:
-#         #     ops.algorithm("NewtonLineSearch")
-#         #     ops.test('NormDispIncr', 1e-4, 10, 1)
-#         #     ok = ops.analyze(1)
-#         #     ops.test('NormDispIncr', 1e-5, 10, 1)
-#         #     ops.algorithm("KrylovNewton")
-#         #     print(ok)
-#         #     if ok != 0:
-#                 print(ops.testNorm())
-#                 break
-
-# # Cleanup
-# ops.remove('timeSeries', 1)
-# ops.remove('loadPattern', 1)
-# ops.remove('timeSeries', 2)
-# ops.remove('loadPattern', 2)
-# ops.wipeAnalysis()
-# ops.reset()
-
-#-------------------------------------------------
-
-
-
-
-print('\n==  Out of Loop  == ' + strftime('%H:%M:%S', gmtime(default_timer() - start)))
-
-ops.wipe()
-
-print('\n==  Starting Postprocessing  == ' + strftime('%H:%M:%S', gmtime(default_timer() - start)))
+# %% Postprocessing
+# Rename integer tags with node and element names
+log('Starting Postprocessing')
 from src.postprocessing import output_preprocessing
-
 output_preprocessing(model.out_dir)
-print('\n==  End of Script  == ' + strftime('%H:%M:%S', gmtime(default_timer() - start)))
+save_variables['Time']['Postprocessing'] = default_timer() - save_variables['Time']['Runtime']
+
+# Save Data
+import json
+with open(out_dir + "data.json", 'w') as file:
+    json.dump(save_variables, file, indent=4)
+
+log('End of Script')
+
+
+# %% Cleanup
+ops.wipe()
+logging.shutdown() # required to safely exit the program
+logger.handlers.clear() # needed to avoid bugs if running program twice from same console
+
